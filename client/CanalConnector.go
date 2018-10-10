@@ -1,4 +1,4 @@
-package clinet
+package client
 
 import protocol "canal-go/protocol"
 
