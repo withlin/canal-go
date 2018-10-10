@@ -1,7 +1,10 @@
-package sample
+package main
 
-import "fmt"
+import (
+	"fmt"
+	"time"
+)
 
 func main() {
-	fmt.Println("this is sample.")
+	fmt.Println(time.Now().UnixNano())
 }
