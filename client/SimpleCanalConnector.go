@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"bytes"
-	"encoding/binary"
+	// "bytes"
+	// "encoding/binary"
 	"io/ioutil"
 )
 
@@ -46,7 +46,7 @@ func NewSimpleCanalConnector(address string, port int, username string, password
 
 }
 
-func Connect() {
+func (s SimpleCanalConnector) Connect() {
 	if samplecanal.Connected {
 		return
 	}
@@ -69,14 +69,24 @@ func Connect() {
 }
 
 func DoConnect() {
-	address := samplecanal.Address + ":" + string(samplecanal.Port)
-	conn, err := net.Dial("tcp", address)
+	address := samplecanal.Address + ":" +  fmt.Sprintf("%d", samplecanal.Port)
+	con, err := net.Dial("tcp", address)
+	conn = con
 	defer conn.Close()
 	checkError(err)
-	receiveData, err :=ioutil.ReadAll(conn)
-	checkError(err)
+	// ReadHeaderLength() 
+	// receiveData, err :=ioutil.ReadAll(conn)
+	// checkError(err)
+	buf := make([]byte, 1024)
+	for {
+		lenght, err := conn.Read(buf)
+		checkError(err)
+		p := &protocol.Packet{}
+	    err = proto.Unmarshal(buf[0:lenght],p)
+		checkError(err)
+	}
 	p := &protocol.Packet{}
-	err = proto.Unmarshal(receiveData,p)
+	// err = proto.Unmarshal(headerBytes,p)
 	checkError(err)
 	if p != nil{
 		if(p.GetVersion() !=1){
@@ -151,12 +161,19 @@ func Rollback(){
 // }
 
 func ReadHeaderLength() int {
-	headerBytes := make([]byte,4)
-	_, err :=conn.Read(headerBytes)
-	checkError(err)
-	var len int
-    _ =  binary.Read(bytes.NewReader(headerBytes), binary.BigEndian, &len)
-	return len
+	headerBytes := make([]byte,1024)
+	for{
+		_, err :=conn.Read(headerBytes)
+		checkError(err)
+	}
+	
+}
+
+func reverse(input []byte) []byte {
+    if len(input) == 0 {
+        return input
+    }
+    return append(reverse(input[1:]), input[0]) 
 }
 
 func checkError(err error) {
