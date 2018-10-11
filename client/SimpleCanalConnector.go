@@ -1,12 +1,15 @@
 package client
 
 import (
+	"errors"
+	"github.com/golang/protobuf/proto"
 	protocol "canal-go/protocol"
 	"fmt"
 	"net"
 	"os"
 	"bytes"
 	"encoding/binary"
+	"io/ioutil"
 )
 
 type SimpleCanalConnector struct {
@@ -14,12 +17,13 @@ type SimpleCanalConnector struct {
 	Port           int
 	UserName       string
 	PassWord       string
-	SoTime         int
-	IdleTimeOut    int
+	SoTime         int32
+	IdleTimeOut    int32
 	ClientIdentity protocol.ClientIdentity
 	Connected      bool
 	Running        bool
 	Filter         string
+	RrollbackOnConnect bool
 }
 
 var (
@@ -27,7 +31,7 @@ var (
 	conn        net.Conn
 )
 
-func NewSimpleCanalConnector(address string, port int, username string, password string, destination string, soTimeOut int, idleTimeOut int) *SimpleCanalConnector {
+func NewSimpleCanalConnector(address string, port int, username string, password string, destination string, soTimeOut int32, idleTimeOut int32) *SimpleCanalConnector {
 	sampleCanalConnector := &SimpleCanalConnector{}
 	sampleCanalConnector.Address = address
 	sampleCanalConnector.Port = port
@@ -36,6 +40,7 @@ func NewSimpleCanalConnector(address string, port int, username string, password
 	sampleCanalConnector.ClientIdentity = protocol.ClientIdentity{Destination: destination, ClientId: 1001}
 	sampleCanalConnector.SoTime = soTimeOut
 	sampleCanalConnector.IdleTimeOut = idleTimeOut
+	sampleCanalConnector.RrollbackOnConnect = true
 	samplecanal = *sampleCanalConnector
 	return sampleCanalConnector
 
@@ -50,6 +55,17 @@ func Connect() {
 		return
 	}
 
+	DoConnect()
+	if samplecanal.Filter != "" {
+		Subscribe(samplecanal.Filter)
+	}
+
+	if samplecanal.RrollbackOnConnect {
+
+	}
+
+	samplecanal.Connected = true
+
 }
 
 func DoConnect() {
@@ -57,14 +73,82 @@ func DoConnect() {
 	conn, err := net.Dial("tcp", address)
 	defer conn.Close()
 	checkError(err)
-	// p := &protocol.Packet{}
-	// err := proto.Unmarshal(,p)
+	receiveData, err :=ioutil.ReadAll(conn)
+	checkError(err)
+	p := &protocol.Packet{}
+	err = proto.Unmarshal(receiveData,p)
+	checkError(err)
+	if p != nil{
+		if(p.GetVersion() !=1){
+			panic("unsupported version at this client.")
+		}
+
+		if(p.GetType() != protocol.PacketType_HANDSHAKE){
+			panic("expect handshake but found other type.")
+		}
+		
+		handshake :=&protocol.Handshake{}
+		err =proto.Unmarshal(p.GetBody(),handshake)
+		checkError(err)
+		pas,_:=proto.MarshalMessageSetJSON(samplecanal.PassWord)
+		ca := protocol.ClientAuth{
+			Username:samplecanal.UserName,
+			Password:pas,
+			NetReadTimeoutPresent:&protocol.ClientAuth_NetReadTimeout{NetReadTimeout:samplecanal.IdleTimeOut},
+			NetWriteTimeoutPresent:&protocol.ClientAuth_NetWriteTimeout{NetWriteTimeout:samplecanal.IdleTimeOut},
+		}
+		cA,_ :=proto.MarshalMessageSetJSON(ca)
+		packet := &protocol.Packet{
+			Type : protocol.PacketType_CLIENTAUTHENTICATION,
+			Body:cA,
+		}
+
+		packArray,_ :=proto.MarshalMessageSetJSON(packet)
+		conn.Write(packArray)
+
+		readData, err :=ioutil.ReadAll(conn)
+	    checkError(err)
+		pk := &protocol.Packet{}
+		
+		err = proto.Unmarshal(readData,pk)
+		checkError(err)
+		
+		if pk.Type != protocol.PacketType_ACK {
+			panic("unexpected packet type when ack is expected")
+		}
+
+		ackBody := &protocol.Ack{}
+		err = proto.Unmarshal(pk.GetBody(),ackBody)
+		
+		if ackBody.GetErrorCode()>0{
+
+			panic(errors.New(fmt.Sprintf("something goes wrong when doing authentication:%s",ackBody.GetErrorMessage())))
+		}
+
+		samplecanal.Connected = true
+		
+
+	}
 
 }
 
-func ReadNextPacket() {
+
+func Subscribe(filter string){
 
 }
+
+func Rollback(){
+
+}
+
+// func ReadNextPacket() {
+// 	var buf  bytes.Buffer
+// 	headerlen := ReadHeaderLength()
+// 	receiveData :=make([]byte,2*1024)
+// 	while(headerlen >0) {
+// 		len := conn.Read()
+// 	}
+// }
 
 func ReadHeaderLength() int {
 	headerBytes := make([]byte,4)
