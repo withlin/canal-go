@@ -1,7 +1,6 @@
 package client
 
 import (
-	"bufio"
 	"bytes"
 	protocol "canal-go/protocol"
 	"encoding/binary"
@@ -9,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strconv"
 
 	// "bytes"
 	// "encoding/binary"
@@ -28,12 +28,11 @@ type SimpleCanalConnector struct {
 	Running            bool
 	Filter             string
 	RrollbackOnConnect bool
-	reader             *bufio.Reader //读取
 }
 
 var (
-	samplecanal SimpleCanalConnector
-	conn        net.Conn
+	sampleConnector SimpleCanalConnector
+	conn            net.Conn
 )
 
 func NewSimpleCanalConnector(address string, port int, username string, password string, destination string, soTimeOut int32, idleTimeOut int32) *SimpleCanalConnector {
@@ -46,36 +45,36 @@ func NewSimpleCanalConnector(address string, port int, username string, password
 	sampleCanalConnector.SoTime = soTimeOut
 	sampleCanalConnector.IdleTimeOut = idleTimeOut
 	sampleCanalConnector.RrollbackOnConnect = true
-	samplecanal = *sampleCanalConnector
+	sampleConnector = *sampleCanalConnector
 
 	return sampleCanalConnector
 
 }
 
-func (s SimpleCanalConnector) Connect() {
-	if samplecanal.Connected {
+func (c SimpleCanalConnector) Connect() {
+	if c.Connected {
 		return
 	}
 
-	if samplecanal.Running {
+	if c.Running {
 		return
 	}
 
-	doConnect()
-	if samplecanal.Filter != "" {
-		Subscribe(samplecanal.Filter)
+	c.doConnect()
+	if c.Filter != "" {
+		// Subscribe(samplecanal.Filter)
 	}
 
-	if samplecanal.RrollbackOnConnect {
+	if c.RrollbackOnConnect {
 
 	}
 
-	samplecanal.Connected = true
+	c.Connected = true
 
 }
 
-func doConnect() {
-	address := samplecanal.Address + ":" + fmt.Sprintf("%d", samplecanal.Port)
+func (c SimpleCanalConnector) doConnect() {
+	address := c.Address + ":" + fmt.Sprintf("%d", c.Port)
 	con, err := net.Dial("tcp", address)
 	conn = con
 	defer conn.Close()
@@ -97,12 +96,12 @@ func doConnect() {
 		handshake := &protocol.Handshake{}
 		err = proto.Unmarshal(p.GetBody(), handshake)
 		checkError(err)
-		pas := []byte(samplecanal.PassWord)
+		pas := []byte(c.PassWord)
 		ca := &protocol.ClientAuth{
-			Username:               samplecanal.UserName,
+			Username:               c.UserName,
 			Password:               pas,
-			NetReadTimeoutPresent:  &protocol.ClientAuth_NetReadTimeout{NetReadTimeout: samplecanal.IdleTimeOut},
-			NetWriteTimeoutPresent: &protocol.ClientAuth_NetWriteTimeout{NetWriteTimeout: samplecanal.IdleTimeOut},
+			NetReadTimeoutPresent:  &protocol.ClientAuth_NetReadTimeout{NetReadTimeout: c.IdleTimeOut},
+			NetWriteTimeoutPresent: &protocol.ClientAuth_NetWriteTimeout{NetWriteTimeout: c.IdleTimeOut},
 		}
 		caByteArray, _ := proto.Marshal(ca)
 		packet := &protocol.Packet{
@@ -132,7 +131,7 @@ func doConnect() {
 			panic(errors.New(fmt.Sprintf("something goes wrong when doing authentication:%s", ackBody.GetErrorMessage())))
 		}
 
-		samplecanal.Connected = true
+		c.Connected = true
 
 	}
 
@@ -168,12 +167,47 @@ func getWriteHeaderBytes(lenth int) []byte {
 	return bytesBuffer.Bytes()
 }
 
-func Subscribe(filter string) {
+func (c *SimpleCanalConnector) Subscribe(filter string) {
+	c.waitClientRunning()
+	if !c.Running {
+		return
+	}
+	body, _ := proto.Marshal(&protocol.Sub{Destination: c.ClientIdentity.Destination, ClientId: strconv.Itoa(c.ClientIdentity.ClientId), Filter: c.Filter})
+	pack := new(protocol.Packet)
+	pack.Type = protocol.PacketType_SUBSCRIPTION
+	pack.Body = body
+
+	packet, _ := proto.Marshal(pack)
+	WriteWithHeader(packet)
+
+	p := new(protocol.Packet)
+
+	paBytes := readNextPacket()
+	err := proto.Unmarshal(paBytes, p)
+	checkError(err)
+	ack := new(protocol.Ack)
+	err = proto.Unmarshal(p.Body, ack)
+	checkError(err)
+
+	if ack.GetErrorCode() > 0 {
+
+		panic(errors.New(fmt.Sprintf("failed to subscribe with reason::%s", ack.GetErrorMessage())))
+	}
+
+	c.Filter = filter
 
 }
 
+// func (c *SimpleCanalConnector) Subscribe() {
+// 	c.Subscribe("")
+// }
+
 func Rollback() {
 
+}
+
+func (c *SimpleCanalConnector) waitClientRunning() {
+	c.Running = true
 }
 
 func checkError(err error) {
