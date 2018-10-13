@@ -178,18 +178,19 @@ func (c *SimpleCanalConnector) GetWithoutAck(batchSize int32, timeOut *int64, un
 	checkError(err)
 	WriteWithHeader(pa)
 
-	return c.rceiveMessages()
+	return nil
 }
 
 func (c *SimpleCanalConnector) receiveMessages() *protocol.Message {
 	data := readNextPacket()
 	p := new(protocol.Packet)
 	err := proto.Unmarshal(data, p)
+	checkError(err)
 	messages := new(protocol.Messages)
 	message := new(protocol.Message)
 	entry := &protocol.Entry{}
 	length := len(messages.Messages)
-	entrys := make([]protocol.Entry, length)
+	message.Entries = make([]protocol.Entry, length)
 	ack := new(protocol.Ack)
 	switch p.Type {
 	case protocol.PacketType_MESSAGES:
@@ -203,7 +204,10 @@ func (c *SimpleCanalConnector) receiveMessages() *protocol.Message {
 
 				for index, value := range messages.Messages {
 					err := proto.Unmarshal(value, entry)
-					// entrys = append(entrys, entry)
+					checkError(err)
+					fmt.Print(message.Entries)
+					fmt.Print(index)
+					// append(*message.Entries, entry)
 				}
 			}
 		}
