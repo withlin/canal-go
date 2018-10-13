@@ -17,17 +17,18 @@ import (
 )
 
 type SimpleCanalConnector struct {
-	Address            string
-	Port               int
-	UserName           string
-	PassWord           string
-	SoTime             int32
-	IdleTimeOut        int32
-	ClientIdentity     protocol.ClientIdentity
-	Connected          bool
-	Running            bool
-	Filter             string
-	RrollbackOnConnect bool
+	Address           string
+	Port              int
+	UserName          string
+	PassWord          string
+	SoTime            int32
+	IdleTimeOut       int32
+	ClientIdentity    protocol.ClientIdentity
+	Connected         bool
+	Running           bool
+	Filter            string
+	RollbackOnConnect bool
+	LazyParseEntry    bool
 }
 
 var (
@@ -44,7 +45,7 @@ func NewSimpleCanalConnector(address string, port int, username string, password
 	sampleCanalConnector.ClientIdentity = protocol.ClientIdentity{Destination: destination, ClientId: 1001}
 	sampleCanalConnector.SoTime = soTimeOut
 	sampleCanalConnector.IdleTimeOut = idleTimeOut
-	sampleCanalConnector.RrollbackOnConnect = true
+	sampleCanalConnector.RollbackOnConnect = true
 	sampleConnector = *sampleCanalConnector
 
 	return sampleCanalConnector
@@ -65,7 +66,7 @@ func (c SimpleCanalConnector) Connect() {
 		// Subscribe(samplecanal.Filter)
 	}
 
-	if c.RrollbackOnConnect {
+	if c.RollbackOnConnect {
 
 	}
 
@@ -135,6 +136,88 @@ func (c SimpleCanalConnector) doConnect() {
 
 	}
 
+}
+
+func (c *SimpleCanalConnector) GetWithoutAck(batchSize int32, timeOut *int64, units *int32) *protocol.Message {
+	c.waitClientRunning()
+	if c.Running {
+		return nil
+	}
+	var size int32
+
+	if batchSize < 0 {
+		size = 1000
+	} else {
+		size = batchSize
+	}
+	var time *int64
+	if timeOut == nil {
+		time = timeOut
+	} else {
+		time = timeOut
+	}
+	var i int32
+	i = -1
+	if units == nil {
+		units = &i
+	}
+	get := new(protocol.Get)
+	get.AutoAckPresent = &protocol.Get_AutoAck{AutoAck: false}
+	get.Destination = c.ClientIdentity.Destination
+	get.ClientId = strconv.Itoa(c.ClientIdentity.ClientId)
+	get.FetchSize = size
+	get.TimeoutPresent = &protocol.Get_Timeout{Timeout: *time}
+	get.UnitPresent = &protocol.Get_Unit{Unit: *units}
+
+	getBody, err := proto.Marshal(get)
+	checkError(err)
+	packet := new(protocol.Packet)
+	packet.Type = protocol.PacketType_GET
+	packet.Body = getBody
+	pa, err := proto.Marshal(packet)
+	checkError(err)
+	WriteWithHeader(pa)
+
+	return c.rceiveMessages()
+}
+
+func (c *SimpleCanalConnector) receiveMessages() *protocol.Message {
+	data := readNextPacket()
+	p := new(protocol.Packet)
+	err := proto.Unmarshal(data, p)
+	messages := new(protocol.Messages)
+	message := new(protocol.Message)
+	entry := &protocol.Entry{}
+	length := len(messages.Messages)
+	entrys := make([]protocol.Entry, length)
+	ack := new(protocol.Ack)
+	switch p.Type {
+	case protocol.PacketType_MESSAGES:
+		if !(p.GetCompression() == protocol.Compression_NONE) {
+			panic("compression is not supported in this connector")
+			err := proto.Unmarshal(p.Body, messages)
+			checkError(err)
+			if c.LazyParseEntry {
+				message.RawEntries = messages.Messages
+			} else {
+
+				for index, value := range messages.Messages {
+					err := proto.Unmarshal(value, entry)
+					// entrys = append(entrys, entry)
+				}
+			}
+		}
+		return message
+
+	case protocol.PacketType_ACK:
+		err := proto.Unmarshal(p.Body, ack)
+		checkError(err)
+		panic(errors.New(fmt.Sprintf("something goes wrong with reason:%s", ack.GetErrorMessage())))
+
+	default:
+		panic(errors.New(fmt.Sprintf("unexpected packet type:%s", p.Type)))
+
+	}
 }
 
 func readHeaderLength() int {

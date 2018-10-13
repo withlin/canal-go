@@ -2,7 +2,7 @@ package com_alibaba_otter_canal_protocol
 
 type Message struct {
 	Id         int64
-	Entries    interface{}
+	Entries    []Entry
 	Raw        bool
 	RawEntries interface{}
 }
