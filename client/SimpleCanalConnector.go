@@ -10,9 +10,10 @@ import (
 	"net"
 	"os"
 
-	"github.com/golang/protobuf/proto"
 	// "bytes"
 	// "encoding/binary"
+
+	"github.com/golang/protobuf/proto"
 )
 
 type SimpleCanalConnector struct {
@@ -97,26 +98,26 @@ func doConnect() {
 		err = proto.Unmarshal(p.GetBody(), handshake)
 		checkError(err)
 		pas := []byte(samplecanal.PassWord)
-		ca := protocol.ClientAuth{
+		ca := &protocol.ClientAuth{
 			Username:               samplecanal.UserName,
 			Password:               pas,
 			NetReadTimeoutPresent:  &protocol.ClientAuth_NetReadTimeout{NetReadTimeout: samplecanal.IdleTimeOut},
 			NetWriteTimeoutPresent: &protocol.ClientAuth_NetWriteTimeout{NetWriteTimeout: samplecanal.IdleTimeOut},
 		}
-		caByteArray := []byte(fmt.Sprintf("%v", ca))
+		caByteArray, _ := proto.Marshal(ca)
 		packet := &protocol.Packet{
 			Type: protocol.PacketType_CLIENTAUTHENTICATION,
 			Body: caByteArray,
 		}
 
 		packArray, _ := proto.Marshal(packet)
-		conn.Write(packArray)
 
-		data = readNextPacket()
-		checkError(err)
+		WriteWithHeader(packArray)
+
+		pp := readNextPacket()
 		pk := &protocol.Packet{}
 
-		err = proto.Unmarshal(data, pk)
+		err = proto.Unmarshal(pp, pk)
 		checkError(err)
 
 		if pk.Type != protocol.PacketType_ACK {
@@ -151,6 +152,20 @@ func readNextPacket() []byte {
 	receiveData := make([]byte, readLen)
 	conn.Read(receiveData)
 	return receiveData
+}
+
+func WriteWithHeader(body []byte) {
+	lenth := len(body)
+	bytes := getWriteHeaderBytes(lenth)
+	conn.Write(bytes)
+	conn.Write(body)
+}
+
+func getWriteHeaderBytes(lenth int) []byte {
+	x := int32(lenth)
+	bytesBuffer := bytes.NewBuffer([]byte{})
+	binary.Write(bytesBuffer, binary.BigEndian, x)
+	return bytesBuffer.Bytes()
 }
 
 func Subscribe(filter string) {
