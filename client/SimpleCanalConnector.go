@@ -1,29 +1,33 @@
 package client
 
 import (
-	"errors"
-	"github.com/golang/protobuf/proto"
+	"bufio"
+	"bytes"
 	protocol "canal-go/protocol"
+	"encoding/binary"
+	"errors"
 	"fmt"
 	"net"
 	"os"
+
+	"github.com/golang/protobuf/proto"
 	// "bytes"
 	// "encoding/binary"
-	"io/ioutil"
 )
 
 type SimpleCanalConnector struct {
-	Address        string
-	Port           int
-	UserName       string
-	PassWord       string
-	SoTime         int32
-	IdleTimeOut    int32
-	ClientIdentity protocol.ClientIdentity
-	Connected      bool
-	Running        bool
-	Filter         string
+	Address            string
+	Port               int
+	UserName           string
+	PassWord           string
+	SoTime             int32
+	IdleTimeOut        int32
+	ClientIdentity     protocol.ClientIdentity
+	Connected          bool
+	Running            bool
+	Filter             string
 	RrollbackOnConnect bool
+	reader             *bufio.Reader //读取
 }
 
 var (
@@ -42,6 +46,7 @@ func NewSimpleCanalConnector(address string, port int, username string, password
 	sampleCanalConnector.IdleTimeOut = idleTimeOut
 	sampleCanalConnector.RrollbackOnConnect = true
 	samplecanal = *sampleCanalConnector
+
 	return sampleCanalConnector
 
 }
@@ -55,7 +60,7 @@ func (s SimpleCanalConnector) Connect() {
 		return
 	}
 
-	DoConnect()
+	doConnect()
 	if samplecanal.Filter != "" {
 		Subscribe(samplecanal.Filter)
 	}
@@ -68,112 +73,92 @@ func (s SimpleCanalConnector) Connect() {
 
 }
 
-func DoConnect() {
-	address := samplecanal.Address + ":" +  fmt.Sprintf("%d", samplecanal.Port)
+func doConnect() {
+	address := samplecanal.Address + ":" + fmt.Sprintf("%d", samplecanal.Port)
 	con, err := net.Dial("tcp", address)
 	conn = con
 	defer conn.Close()
 	checkError(err)
-	// ReadHeaderLength() 
-	// receiveData, err :=ioutil.ReadAll(conn)
-	// checkError(err)
-	buf := make([]byte, 1024)
-	for {
-		lenght, err := conn.Read(buf)
-		checkError(err)
-		p := &protocol.Packet{}
-	    err = proto.Unmarshal(buf[0:lenght],p)
-		checkError(err)
-	}
-	p := &protocol.Packet{}
-	// err = proto.Unmarshal(headerBytes,p)
+
+	p := new(protocol.Packet)
+	data := readNextPacket()
+	err = proto.Unmarshal(data, p)
 	checkError(err)
-	if p != nil{
-		if(p.GetVersion() !=1){
+	if p != nil {
+		if p.GetVersion() != 1 {
 			panic("unsupported version at this client.")
 		}
 
-		if(p.GetType() != protocol.PacketType_HANDSHAKE){
+		if p.GetType() != protocol.PacketType_HANDSHAKE {
 			panic("expect handshake but found other type.")
 		}
-		
-		handshake :=&protocol.Handshake{}
-		err =proto.Unmarshal(p.GetBody(),handshake)
+
+		handshake := &protocol.Handshake{}
+		err = proto.Unmarshal(p.GetBody(), handshake)
 		checkError(err)
-		pas,_:=proto.MarshalMessageSetJSON(samplecanal.PassWord)
+		pas := []byte(samplecanal.PassWord)
 		ca := protocol.ClientAuth{
-			Username:samplecanal.UserName,
-			Password:pas,
-			NetReadTimeoutPresent:&protocol.ClientAuth_NetReadTimeout{NetReadTimeout:samplecanal.IdleTimeOut},
-			NetWriteTimeoutPresent:&protocol.ClientAuth_NetWriteTimeout{NetWriteTimeout:samplecanal.IdleTimeOut},
+			Username:               samplecanal.UserName,
+			Password:               pas,
+			NetReadTimeoutPresent:  &protocol.ClientAuth_NetReadTimeout{NetReadTimeout: samplecanal.IdleTimeOut},
+			NetWriteTimeoutPresent: &protocol.ClientAuth_NetWriteTimeout{NetWriteTimeout: samplecanal.IdleTimeOut},
 		}
-		cA,_ :=proto.MarshalMessageSetJSON(ca)
+		caByteArray := []byte(fmt.Sprintf("%v", ca))
 		packet := &protocol.Packet{
-			Type : protocol.PacketType_CLIENTAUTHENTICATION,
-			Body:cA,
+			Type: protocol.PacketType_CLIENTAUTHENTICATION,
+			Body: caByteArray,
 		}
 
-		packArray,_ :=proto.MarshalMessageSetJSON(packet)
+		packArray, _ := proto.Marshal(packet)
 		conn.Write(packArray)
 
-		readData, err :=ioutil.ReadAll(conn)
-	    checkError(err)
-		pk := &protocol.Packet{}
-		
-		err = proto.Unmarshal(readData,pk)
+		data = readNextPacket()
 		checkError(err)
-		
+		pk := &protocol.Packet{}
+
+		err = proto.Unmarshal(data, pk)
+		checkError(err)
+
 		if pk.Type != protocol.PacketType_ACK {
 			panic("unexpected packet type when ack is expected")
 		}
 
 		ackBody := &protocol.Ack{}
-		err = proto.Unmarshal(pk.GetBody(),ackBody)
-		
-		if ackBody.GetErrorCode()>0{
+		err = proto.Unmarshal(pk.GetBody(), ackBody)
 
-			panic(errors.New(fmt.Sprintf("something goes wrong when doing authentication:%s",ackBody.GetErrorMessage())))
+		if ackBody.GetErrorCode() > 0 {
+
+			panic(errors.New(fmt.Sprintf("something goes wrong when doing authentication:%s", ackBody.GetErrorMessage())))
 		}
 
 		samplecanal.Connected = true
-		
 
 	}
 
 }
 
+func readHeaderLength() int {
+	buf := make([]byte, 4)
+	conn.Read(buf)
+	bytesBuffer := bytes.NewBuffer(buf)
+	var x int32
+	binary.Read(bytesBuffer, binary.BigEndian, &x)
+	return int(x)
+}
 
-func Subscribe(filter string){
+func readNextPacket() []byte {
+	readLen := readHeaderLength()
+	receiveData := make([]byte, readLen)
+	conn.Read(receiveData)
+	return receiveData
+}
+
+func Subscribe(filter string) {
 
 }
 
-func Rollback(){
+func Rollback() {
 
-}
-
-// func ReadNextPacket() {
-// 	var buf  bytes.Buffer
-// 	headerlen := ReadHeaderLength()
-// 	receiveData :=make([]byte,2*1024)
-// 	while(headerlen >0) {
-// 		len := conn.Read()
-// 	}
-// }
-
-func ReadHeaderLength() int {
-	headerBytes := make([]byte,1024)
-	for{
-		_, err :=conn.Read(headerBytes)
-		checkError(err)
-	}
-	
-}
-
-func reverse(input []byte) []byte {
-    if len(input) == 0 {
-        return input
-    }
-    return append(reverse(input[1:]), input[0]) 
 }
 
 func checkError(err error) {

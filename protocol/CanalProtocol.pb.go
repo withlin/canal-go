@@ -220,14 +220,14 @@ func (m *Packet) GetMagicNumber() int32 {
 	if x, ok := m.GetMagicNumberPresent().(*Packet_MagicNumber); ok {
 		return x.MagicNumber
 	}
-	return 0
+	return 17
 }
 
 func (m *Packet) GetVersion() int32 {
 	if x, ok := m.GetVersionPresent().(*Packet_Version); ok {
 		return x.Version
 	}
-	return 0
+	return 1
 }
 
 func (m *Packet) GetType() PacketType {
@@ -241,7 +241,7 @@ func (m *Packet) GetCompression() Compression {
 	if x, ok := m.GetCompressionPresent().(*Packet_Compression); ok {
 		return x.Compression
 	}
-	return Compression_COMPRESSIONCOMPATIBLEPROTO2
+	return Compression_NONE
 }
 
 func (m *Packet) GetBody() []byte {
