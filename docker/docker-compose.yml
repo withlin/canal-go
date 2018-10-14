@@ -1,0 +1,37 @@
+
+version: '3.1'
+
+services:
+  mysql:
+    image: mysql:5.7
+    container_name: mysql-5.7
+    ports:
+      - "4406:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=000000
+    networks:
+      - canalsharp
+    volumes:
+      - ./mysql/mysqld.cnf:/etc/mysql/mysql.conf.d/mysqld.cnf
+      - ./var/lib/mysql:/var/lib/mysql
+      - ./mysql/init/:/docker-entrypoint-initdb.d/
+
+    
+  canal-server:
+    image: canal/canal-server:v1.1.0
+    container_name: canal-server
+    ports:
+      - "11111:11111"
+    networks:
+      - canalsharp
+    volumes:
+      - ./example/:/home/admin/canal-server/conf/example/
+      - ./canal-server-logs/:/home/admin/canal-server/logs/
+    depends_on:
+      - mysql
+
+networks:
+
+  canalsharp:
+    driver: bridge
+
