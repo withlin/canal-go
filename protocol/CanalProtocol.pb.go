@@ -1218,14 +1218,14 @@ func (m *Get) GetTimeout() int64 {
 	if x, ok := m.GetTimeoutPresent().(*Get_Timeout); ok {
 		return x.Timeout
 	}
-	return 0
+	return -1
 }
 
 func (m *Get) GetUnit() int32 {
 	if x, ok := m.GetUnitPresent().(*Get_Unit); ok {
 		return x.Unit
 	}
-	return 0
+	return 2
 }
 
 func (m *Get) GetAutoAck() bool {
