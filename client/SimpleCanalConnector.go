@@ -10,9 +10,6 @@ import (
 	"os"
 	"strconv"
 
-	// "bytes"
-	// "encoding/binary"
-
 	"github.com/golang/protobuf/proto"
 )
 
@@ -72,6 +69,20 @@ func (c SimpleCanalConnector) Connect() {
 
 	c.Connected = true
 
+}
+
+func quitelyClose() {
+	if conn != nil {
+		conn.Close()
+	}
+}
+
+func (c *SimpleCanalConnector) DisConnection() {
+	if c.RollbackOnConnect && c.Connected == true {
+		c.RollBack(0)
+	}
+	c.Connected = false
+	quitelyClose()
 }
 
 func (c SimpleCanalConnector) doConnect() {
@@ -224,6 +235,45 @@ func (c *SimpleCanalConnector) receiveMessages() *protocol.Message {
 	}
 }
 
+func (c *SimpleCanalConnector) Ack(batchId int64) {
+	c.waitClientRunning()
+	if !c.Running {
+		return
+	}
+
+	ca := new(protocol.ClientAck)
+	ca.Destination = c.ClientIdentity.Destination
+	ca.ClientId = strconv.Itoa(c.ClientIdentity.ClientId)
+	ca.BatchId = batchId
+
+	clientAck, err := proto.Marshal(ca)
+	checkError(err)
+	pa := new(protocol.Packet)
+	pa.Type = protocol.PacketType_ACK
+	pa.Body = clientAck
+	pack, err := proto.Marshal(pa)
+	WriteWithHeader(pack)
+
+}
+
+func (c *SimpleCanalConnector) RollBack(batchId int64) {
+	c.waitClientRunning()
+	cb := new(protocol.ClientRollback)
+	cb.Destination = c.ClientIdentity.Destination
+	cb.ClientId = strconv.Itoa(c.ClientIdentity.ClientId)
+	cb.BatchId = batchId
+
+	clientBollBack, err := proto.Marshal(cb)
+	checkError(err)
+
+	pa := new(protocol.Packet)
+	pa.Type = protocol.PacketType_CLIENTROLLBACK
+	pa.Body = clientBollBack
+	pack, err := proto.Marshal(pa)
+	checkError(err)
+	WriteWithHeader(pack)
+}
+
 func readHeaderLength() int {
 	buf := make([]byte, 4)
 	conn.Read(buf)
@@ -282,14 +332,6 @@ func (c *SimpleCanalConnector) Subscribe(filter string) {
 	}
 
 	c.Filter = filter
-
-}
-
-// func (c *SimpleCanalConnector) Subscribe() {
-// 	c.Subscribe("")
-// }
-
-func Rollback() {
 
 }
 
