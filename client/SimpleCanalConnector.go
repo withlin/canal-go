@@ -49,7 +49,7 @@ func NewSimpleCanalConnector(address string, port int, username string, password
 
 }
 
-func (c SimpleCanalConnector) Connect() {
+func (c *SimpleCanalConnector) Connect() {
 	if c.Connected {
 		return
 	}
@@ -60,11 +60,11 @@ func (c SimpleCanalConnector) Connect() {
 
 	c.doConnect()
 	if c.Filter != "" {
-		// Subscribe(samplecanal.Filter)
+		c.Subscribe(c.Filter)
 	}
 
 	if c.RollbackOnConnect {
-
+		c.RollBack(0)
 	}
 
 	c.Connected = true
@@ -149,7 +149,7 @@ func (c SimpleCanalConnector) doConnect() {
 
 }
 
-func (c *SimpleCanalConnector) GetWithoutAck(batchSize int32, timeOut *int64, units *int32) *protocol.Message {
+func (c *SimpleCanalConnector) GetWithOutAck(batchSize int32, timeOut *int64, units *int32) *protocol.Message {
 	c.waitClientRunning()
 	if c.Running {
 		return nil
@@ -190,6 +190,44 @@ func (c *SimpleCanalConnector) GetWithoutAck(batchSize int32, timeOut *int64, un
 	WriteWithHeader(pa)
 
 	return nil
+}
+
+func (c *SimpleCanalConnector) Get(batchSize int32, timeOut *int64, units *int32) *protocol.Message {
+	message := c.GetWithOutAck(batchSize, timeOut, units)
+	c.Ack(message.Id)
+	return message
+}
+
+func (c *SimpleCanalConnector) UnSubscribe() {
+	c.waitClientRunning()
+	if c.Running {
+		return
+	}
+
+	us := new(protocol.Unsub)
+	us.Destination = c.ClientIdentity.Destination
+	us.ClientId = strconv.Itoa(c.ClientIdentity.ClientId)
+
+	unSub, err := proto.Marshal(us)
+	checkError(err)
+
+	pa := new(protocol.Packet)
+	pa.Type = protocol.PacketType_UNSUBSCRIPTION
+	pa.Body = unSub
+
+	pack, err := proto.Marshal(pa)
+	WriteWithHeader(pack)
+
+	p := readNextPacket()
+	pa = nil
+	err = proto.Unmarshal(p, pa)
+	checkError(err)
+	ack := new(protocol.Ack)
+	err = proto.Unmarshal(pa.Body, ack)
+	checkError(err)
+	if ack.GetErrorCode() > 0 {
+		panic(errors.New(fmt.Sprintf("failed to unSubscribe with reason:%s", ack.GetErrorMessage())))
+	}
 }
 
 func (c *SimpleCanalConnector) receiveMessages() *protocol.Message {
