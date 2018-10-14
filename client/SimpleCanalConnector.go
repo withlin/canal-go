@@ -29,12 +29,11 @@ type SimpleCanalConnector struct {
 }
 
 var (
-	sampleConnector SimpleCanalConnector
-	conn            net.Conn
+	conn net.Conn
 )
 
 func NewSimpleCanalConnector(address string, port int, username string, password string, destination string, soTimeOut int32, idleTimeOut int32) *SimpleCanalConnector {
-	sampleCanalConnector := &SimpleCanalConnector{}
+	sampleCanalConnector := new(SimpleCanalConnector)
 	sampleCanalConnector.Address = address
 	sampleCanalConnector.Port = port
 	sampleCanalConnector.UserName = username
@@ -43,8 +42,6 @@ func NewSimpleCanalConnector(address string, port int, username string, password
 	sampleCanalConnector.SoTime = soTimeOut
 	sampleCanalConnector.IdleTimeOut = idleTimeOut
 	sampleCanalConnector.RollbackOnConnect = true
-	sampleConnector = *sampleCanalConnector
-
 	return sampleCanalConnector
 
 }
@@ -88,9 +85,9 @@ func (c *SimpleCanalConnector) DisConnection() {
 func (c SimpleCanalConnector) doConnect() {
 	address := c.Address + ":" + fmt.Sprintf("%d", c.Port)
 	con, err := net.Dial("tcp", address)
+	checkError(err)
 	conn = con
 	defer conn.Close()
-	checkError(err)
 
 	p := new(protocol.Packet)
 	data := readNextPacket()
