@@ -79,18 +79,24 @@ or you can install it from nuget manager(a graphic ui)  in visual studio
 
 
 ````golang
-package main
 
-import (
-	"canal-go/client"
-)
-
-func main() {
-
-	connector := client.NewSimpleCanalConnector("127.0.0.1", 11111, "", "", "example", 60000, 60*60*1000)
+connector := client.NewSimpleCanalConnector("192.168.199.17", 11111, "", "", "example", 60000, 60*60*1000)
 	connector.Connect()
 	connector.Subscribe(".*\\\\..*")
-}
+
+	for {
+
+		message := connector.Get(100, nil, nil)
+		batchId := message.Id
+		if batchId == -1 || len(message.Entries) <= 0 {
+			time.Sleep(300 * time.Millisecond)
+			fmt.Println("===没有数据了===")
+			continue
+		}
+
+		printEntry(message.Entries)
+
+	}
 
 ````
 
