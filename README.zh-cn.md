@@ -103,7 +103,7 @@ connector := client.NewSimpleCanalConnector("192.168.199.17", 11111, "", "", "ex
 ### 1.执行命令通过docker方式运行 mysql与canal
 
 ````shell
-git clone https://github.com/CanalSharp/canal-go.git
+git clone https://github.com/CanalClient/canal-go.git
 cd canal-go
 cd docker
 docker-compose up -d
