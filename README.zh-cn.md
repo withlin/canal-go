@@ -40,17 +40,17 @@ canal-go  是 Canal 的 golang 客户端，它与 Canal 是采用的Socket来进
 
 1.Canal连接到mysql数据库，模拟slave
 
-2.CanalSharp与Canal建立连接
+2.canal-go与Canal建立连接
 
 2.数据库发生变更写入到binlog
 
 5.Canal向数据库发送dump请求，获取binlog并解析
 
-4.CanalSharp向Canal请求数据库变更
+4.canal-go向Canal请求数据库变更
 
-4.Canal发送解析后的数据给CanalSharp
+4.Canal发送解析后的数据给canal-go
 
-5.CanalSharp收到数据，消费成功，发送回执。（可选）
+5.canal-go收到数据，消费成功，发送回执。（可选）
 
 6.Canal记录消费位置。
 
@@ -137,11 +137,11 @@ delete from test where id=1000;
 
 ![](assets/ys.gif)
 
-可以看见我们分别执行 insert、update、delete 语句，我们的CanalSharp都获取到了数据库变更。
+可以看见我们分别执行 insert、update、delete 语句，我们的canal-go都获取到了数据库变更。
 
 ## 七.接下来的工作
 
-CanalSharp集群支持
+canal-go集群支持
 
 ## 八.贡献代码
 

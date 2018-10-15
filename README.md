@@ -40,17 +40,17 @@ As a golang client of Canal,it use `Socket` for communication,the transfer Proto
 
 1) Canal connect to Mysql database ,pretented to be a slave of mysql
 
-2) CanalSharp(as mentioned it is a client of Cancal) connect to Canal
+2) canal-go(as mentioned it is a client of Cancal) connect to Canal
 
 3) When data in the database changed,it write the changes to binlog
 
 4) Canal send dump request to mysql database,get binlog and then parse it.
 
-5) CancalSharp send request to Canal for data.
+5) canal-go send request to Canal for data.
 
-6) Canal send parsed data to CanalSharp
+6) Canal send parsed data to canal-go
 
-7) CancalSharp get data successfully and then send an acknowledgement to Canal(optional)
+7) canal-go get data successfully and then send an acknowledgement to Canal(optional)
 
 8) Canal record the consumption position
 
@@ -141,19 +141,19 @@ delete from test where id=1000;
 
 ![](assets/ys.gif)
 
-we can see that after executing `insrt,update,delete` sql,Our CanalSharp get the changed data.
+we can see that after executing `insrt,update,delete` sql,Our canal-go get the changed data.
 
 
 
 ## Ⅶ What we will do next
 
-CanalSharp clustering support
+canal-go clustering support
 
 ## Ⅷ Contribute
 
 We gladly accept community contributions.
 
-1.fork the CanalSharp Project
+1.fork the canal-go Project
 
 2.make changes to it
 
