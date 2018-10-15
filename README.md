@@ -101,7 +101,8 @@ for more detailed information please visit [Sample](https://github.com/CanalShar
 ### 1. Run mysql and canal by command
 
 ````shell
-git clone https://github.com/CanalSharp/CanalSharp.git
+git clone https://github.com/CanalSharp/canal-go.git
+cd canal-go
 cd docker
 docker-compose up -d
 ````

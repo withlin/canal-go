@@ -61,6 +61,8 @@ func (c *SimpleCanalConnector) Connect() {
 	}
 
 	if c.RollbackOnConnect {
+		c.waitClientRunning()
+
 		c.RollBack(0)
 	}
 
@@ -87,7 +89,7 @@ func (c SimpleCanalConnector) doConnect() {
 	con, err := net.Dial("tcp", address)
 	checkError(err)
 	conn = con
-	defer conn.Close()
+	// defer conn.Close()
 
 	p := new(protocol.Packet)
 	data := readNextPacket()
@@ -148,7 +150,7 @@ func (c SimpleCanalConnector) doConnect() {
 
 func (c *SimpleCanalConnector) GetWithOutAck(batchSize int32, timeOut *int64, units *int32) *protocol.Message {
 	c.waitClientRunning()
-	if c.Running {
+	if !c.Running {
 		return nil
 	}
 	var size int32
@@ -159,8 +161,10 @@ func (c *SimpleCanalConnector) GetWithOutAck(batchSize int32, timeOut *int64, un
 		size = batchSize
 	}
 	var time *int64
+	var t int64
+	t = -1
 	if timeOut == nil {
-		time = timeOut
+		time = &t
 	} else {
 		time = timeOut
 	}
@@ -185,8 +189,8 @@ func (c *SimpleCanalConnector) GetWithOutAck(batchSize int32, timeOut *int64, un
 	pa, err := proto.Marshal(packet)
 	checkError(err)
 	WriteWithHeader(pa)
-
-	return nil
+	message := c.receiveMessages()
+	return message
 }
 
 func (c *SimpleCanalConnector) Get(batchSize int32, timeOut *int64, units *int32) *protocol.Message {
@@ -234,29 +238,33 @@ func (c *SimpleCanalConnector) receiveMessages() *protocol.Message {
 	checkError(err)
 	messages := new(protocol.Messages)
 	message := new(protocol.Message)
-	entry := &protocol.Entry{}
+
 	length := len(messages.Messages)
 	message.Entries = make([]protocol.Entry, length)
 	ack := new(protocol.Ack)
+	var items []protocol.Entry
+	var entry protocol.Entry
 	switch p.Type {
 	case protocol.PacketType_MESSAGES:
 		if !(p.GetCompression() == protocol.Compression_NONE) {
 			panic("compression is not supported in this connector")
-			err := proto.Unmarshal(p.Body, messages)
-			checkError(err)
-			if c.LazyParseEntry {
-				message.RawEntries = messages.Messages
-			} else {
+		}
+		err := proto.Unmarshal(p.Body, messages)
+		checkError(err)
+		if c.LazyParseEntry {
+			message.RawEntries = messages.Messages
+		} else {
 
-				for index, value := range messages.Messages {
-					err := proto.Unmarshal(value, entry)
-					checkError(err)
-					fmt.Print(message.Entries)
-					fmt.Print(index)
-					// append(*message.Entries, entry)
-				}
+			for index, value := range messages.Messages {
+				err := proto.Unmarshal(value, &entry)
+				checkError(err)
+				fmt.Print(message.Entries)
+				fmt.Print(index)
+				items = append(items, entry)
 			}
 		}
+		message.Entries = items
+		message.Id = messages.GetBatchId()
 		return message
 
 	case protocol.PacketType_ACK:
