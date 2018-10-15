@@ -89,7 +89,6 @@ func (c SimpleCanalConnector) doConnect() {
 	con, err := net.Dial("tcp", address)
 	checkError(err)
 	conn = con
-	// defer conn.Close()
 
 	p := new(protocol.Packet)
 	data := readNextPacket()
@@ -271,7 +270,6 @@ func (c *SimpleCanalConnector) receiveMessages() *protocol.Message {
 		err := proto.Unmarshal(p.Body, ack)
 		checkError(err)
 		panic(errors.New(fmt.Sprintf("something goes wrong with reason:%s", ack.GetErrorMessage())))
-
 	default:
 		panic(errors.New(fmt.Sprintf("unexpected packet type:%s", p.Type)))
 
@@ -292,9 +290,10 @@ func (c *SimpleCanalConnector) Ack(batchId int64) {
 	clientAck, err := proto.Marshal(ca)
 	checkError(err)
 	pa := new(protocol.Packet)
-	pa.Type = protocol.PacketType_ACK
+	pa.Type = protocol.PacketType_CLIENTACK
 	pa.Body = clientAck
 	pack, err := proto.Marshal(pa)
+	checkError(err)
 	WriteWithHeader(pack)
 
 }

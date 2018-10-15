@@ -18,7 +18,7 @@ func main() {
 
 	for {
 
-		message := connector.GetWithOutAck(100, nil, nil)
+		message := connector.Get(100, nil, nil)
 		batchId := message.Id
 		if batchId == -1 || len(message.Entries) <= 0 {
 			time.Sleep(300 * time.Millisecond)
@@ -58,6 +58,7 @@ func printEntry(entrys []protocol.Entry) {
 				}
 			}
 		}
+		rowChange = nil
 	}
 }
 
