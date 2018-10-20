@@ -2,7 +2,7 @@ package main
 
 import (
 	"canal-go/client"
-	protocol "canal-go/protocol"
+	protocol "github.com/CanalClient/canal-go/protocol"
 	"fmt"
 	"os"
 	"time"

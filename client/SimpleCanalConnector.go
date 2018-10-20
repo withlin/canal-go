@@ -2,7 +2,7 @@ package client
 
 import (
 	"bytes"
-	protocol "canal-go/protocol"
+	protocol "github.com/CanalClient/canal-go/protocol"
 	"encoding/binary"
 	"errors"
 	"fmt"
