@@ -1,7 +1,7 @@
 package main
 
 import (
-	"canal-go/client"
+	"github.com/CanalClient/canal-go/client"
 	protocol "github.com/CanalClient/canal-go/protocol"
 	"fmt"
 	"os"
