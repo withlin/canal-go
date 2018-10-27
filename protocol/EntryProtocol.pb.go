@@ -238,7 +238,7 @@ func (m *Entry) GetEntryType() EntryType {
 	if x, ok := m.GetEntryTypePresent().(*Entry_EntryType); ok {
 		return x.EntryType
 	}
-	return EntryType_ENTRYTYPECOMPATIBLEPROTO2
+	return EntryType_ROWDATA
 }
 
 func (m *Entry) GetStoreValue() []byte {
@@ -426,7 +426,7 @@ func (m *Header) GetVersion() int32 {
 	if x, ok := m.GetVersionPresent().(*Header_Version); ok {
 		return x.Version
 	}
-	return 0
+	return 1
 }
 
 func (m *Header) GetLogfileName() string {
@@ -468,7 +468,7 @@ func (m *Header) GetSourceType() Type {
 	if x, ok := m.GetSourceTypePresent().(*Header_SourceType); ok {
 		return x.SourceType
 	}
-	return Type_TYPECOMPATIBLEPROTO2
+	return Type_MYSQL
 }
 
 func (m *Header) GetSchemaName() string {
@@ -496,7 +496,7 @@ func (m *Header) GetEventType() EventType {
 	if x, ok := m.GetEventTypePresent().(*Header_EventType); ok {
 		return x.EventType
 	}
-	return EventType_EVENTTYPECOMPATIBLEPROTO2
+	return EventType_UPDATE
 }
 
 func (m *Header) GetProps() []*Pair {
@@ -992,7 +992,7 @@ func (m *RowChange) GetEventType() EventType {
 	if x, ok := m.GetEventTypePresent().(*RowChange_EventType); ok {
 		return x.EventType
 	}
-	return EventType_EVENTTYPECOMPATIBLEPROTO2
+	return EventType_UPDATE
 }
 
 func (m *RowChange) GetIsDdl() bool {
