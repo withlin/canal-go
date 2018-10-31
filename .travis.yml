@@ -4,10 +4,5 @@ go:
   - "1.10.x"
   - "1.11.x"
 
-sudo: required
-
-go_import_path: github.com/CanalClient/canal-go
-
-
 script:
   - go build
