@@ -1,11 +1,12 @@
 package main
 
 import (
-	"github.com/CanalClient/canal-go/client"
-	protocol "github.com/CanalClient/canal-go/protocol"
 	"fmt"
 	"os"
 	"time"
+
+	"github.com/CanalClient/canal-go/client"
+	protocol "github.com/CanalClient/canal-go/protocol"
 
 	"github.com/golang/protobuf/proto"
 )
@@ -32,11 +33,12 @@ func main() {
 }
 
 func printEntry(entrys []protocol.Entry) {
-	rowChange := new(protocol.RowChange)
+
 	for _, entry := range entrys {
 		if entry.GetEntryType() == protocol.EntryType_TRANSACTIONBEGIN || entry.GetEntryType() == protocol.EntryType_TRANSACTIONEND {
 			continue
 		}
+		rowChange := new(protocol.RowChange)
 
 		err := proto.Unmarshal(entry.GetStoreValue(), rowChange)
 		checkError(err)
@@ -58,7 +60,6 @@ func printEntry(entrys []protocol.Entry) {
 				}
 			}
 		}
-		rowChange = nil
 	}
 }
 
