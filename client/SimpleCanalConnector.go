@@ -259,11 +259,9 @@ func (c *SimpleCanalConnector) receiveMessages() *protocol.Message {
 			message.RawEntries = messages.Messages
 		} else {
 
-			for index, value := range messages.Messages {
+			for _, value := range messages.Messages {
 				err := proto.Unmarshal(value, &entry)
 				checkError(err)
-				fmt.Print(message.Entries)
-				fmt.Print(index)
 				items = append(items, entry)
 			}
 		}
