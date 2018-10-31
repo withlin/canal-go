@@ -27,7 +27,7 @@ func main() {
 			continue
 		}
 
-		// printEntry(message.Entries)
+		printEntry(message.Entries)
 
 	}
 }
