@@ -1,6 +1,8 @@
 
 # canal-go
 
+[![Build Status](https://travis-ci.org/CanalClient/canal-go.svg?branch=master)](https://travis-ci.org/CanalSharp/canal-go)
+
 ## 一.canal-go是什么?
 
 canal-go  是阿里巴巴开源项目 Canal 的 golang 客户端。为 golang 开发者提供一个更友好的使用 Canal 的方式。Canal 是mysql数据库binlog的增量订阅&消费组件。

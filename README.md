@@ -1,6 +1,8 @@
 
 # canal-go                                              |[中文](https://github.com/CanalSharp/canal-go/blob/master/README.zh-cn.md)
 
+[![Build Status](https://travis-ci.org/CanalClient/canal-go.svg?branch=master)](https://travis-ci.org/CanalSharp/canal-go)
+
 ## Ⅰ.What is canal-go
 
 canal-go is a golang Client of alibaba's open source component `Canal`,and it provides golang developer a much easier way to use Canal.

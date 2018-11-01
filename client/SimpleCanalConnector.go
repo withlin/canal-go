@@ -1,14 +1,18 @@
 package client
 
 import (
+	"bufio"
 	"bytes"
-	protocol "github.com/CanalClient/canal-go/protocol"
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"strconv"
+	"sync"
+
+	protocol "github.com/CanalClient/canal-go/protocol"
 
 	"github.com/golang/protobuf/proto"
 )
@@ -29,7 +33,8 @@ type SimpleCanalConnector struct {
 }
 
 var (
-	conn net.Conn
+	conn  net.Conn
+	mutex sync.Mutex
 )
 
 func NewSimpleCanalConnector(address string, port int, username string, password string, destination string, soTimeOut int32, idleTimeOut int32) *SimpleCanalConnector {
@@ -254,11 +259,9 @@ func (c *SimpleCanalConnector) receiveMessages() *protocol.Message {
 			message.RawEntries = messages.Messages
 		} else {
 
-			for index, value := range messages.Messages {
+			for _, value := range messages.Messages {
 				err := proto.Unmarshal(value, &entry)
 				checkError(err)
-				fmt.Print(message.Entries)
-				fmt.Print(index)
 				items = append(items, entry)
 			}
 		}
@@ -326,17 +329,30 @@ func readHeaderLength() int {
 }
 
 func readNextPacket() []byte {
-	readLen := readHeaderLength()
-	receiveData := make([]byte, readLen)
-	conn.Read(receiveData)
-	return receiveData
+	mutex.Lock()
+	rdr := bufio.NewReader(conn)
+	data := make([]byte, 0, 4*1024)
+	n, err := io.ReadFull(rdr, data[:4])
+	checkError(err)
+	data = data[:n]
+	dataLen := binary.BigEndian.Uint32(data)
+	if uint64(dataLen) > uint64(cap(data)) {
+		data = make([]byte, 0, dataLen)
+	}
+	n, err = io.ReadFull(rdr, data[:dataLen])
+	checkError(err)
+	data = data[:n]
+	mutex.Unlock()
+	return data
 }
 
 func WriteWithHeader(body []byte) {
+	mutex.Lock()
 	lenth := len(body)
 	bytes := getWriteHeaderBytes(lenth)
 	conn.Write(bytes)
 	conn.Write(body)
+	mutex.Unlock()
 }
 
 func getWriteHeaderBytes(lenth int) []byte {
