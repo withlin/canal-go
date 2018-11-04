@@ -1,3 +1,19 @@
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package client
 
 import (
@@ -51,6 +67,7 @@ func NewSimpleCanalConnector(address string, port int, username string, password
 
 }
 
+//Connect 连接Canal-server
 func (c *SimpleCanalConnector) Connect() {
 	if c.Connected {
 		return
@@ -75,12 +92,14 @@ func (c *SimpleCanalConnector) Connect() {
 
 }
 
+//quitelyClose 安静关闭
 func quitelyClose() {
 	if conn != nil {
 		conn.Close()
 	}
 }
 
+//DisConnection 关闭连接
 func (c *SimpleCanalConnector) DisConnection() {
 	if c.RollbackOnConnect && c.Connected == true {
 		c.RollBack(0)
@@ -89,6 +108,7 @@ func (c *SimpleCanalConnector) DisConnection() {
 	quitelyClose()
 }
 
+//doConnect 去连接Canal-Server
 func (c SimpleCanalConnector) doConnect() {
 	address := c.Address + ":" + fmt.Sprintf("%d", c.Port)
 	con, err := net.Dial("tcp", address)
@@ -152,6 +172,7 @@ func (c SimpleCanalConnector) doConnect() {
 
 }
 
+//GetWithOutAck 获取数据不Ack
 func (c *SimpleCanalConnector) GetWithOutAck(batchSize int32, timeOut *int64, units *int32) *protocol.Message {
 	c.waitClientRunning()
 	if !c.Running {
@@ -197,12 +218,14 @@ func (c *SimpleCanalConnector) GetWithOutAck(batchSize int32, timeOut *int64, un
 	return message
 }
 
+//Get 获取数据并且Ack数据
 func (c *SimpleCanalConnector) Get(batchSize int32, timeOut *int64, units *int32) *protocol.Message {
 	message := c.GetWithOutAck(batchSize, timeOut, units)
 	c.Ack(message.Id)
 	return message
 }
 
+//UnSubscribe 取消订阅
 func (c *SimpleCanalConnector) UnSubscribe() {
 	c.waitClientRunning()
 	if c.Running {
@@ -235,6 +258,7 @@ func (c *SimpleCanalConnector) UnSubscribe() {
 	}
 }
 
+//receiveMessages 接收Canal-Server返回的消息体
 func (c *SimpleCanalConnector) receiveMessages() *protocol.Message {
 	data := readNextPacket()
 	p := new(protocol.Packet)
@@ -279,6 +303,7 @@ func (c *SimpleCanalConnector) receiveMessages() *protocol.Message {
 	}
 }
 
+//Ack Ack Canal-server的数据（就是昨晚某些逻辑操作后删除canal-server端的数据）
 func (c *SimpleCanalConnector) Ack(batchId int64) {
 	c.waitClientRunning()
 	if !c.Running {
@@ -301,6 +326,7 @@ func (c *SimpleCanalConnector) Ack(batchId int64) {
 
 }
 
+//RollBack 回滚操作
 func (c *SimpleCanalConnector) RollBack(batchId int64) {
 	c.waitClientRunning()
 	cb := new(protocol.ClientRollback)
@@ -319,6 +345,7 @@ func (c *SimpleCanalConnector) RollBack(batchId int64) {
 	WriteWithHeader(pack)
 }
 
+// readHeaderLength 读取protobuf的header字节，该字节存取了你要读的package的长度
 func readHeaderLength() int {
 	buf := make([]byte, 4)
 	conn.Read(buf)
@@ -328,6 +355,7 @@ func readHeaderLength() int {
 	return int(x)
 }
 
+//readNextPacket 通过长度去读取数据包
 func readNextPacket() []byte {
 	mutex.Lock()
 	rdr := bufio.NewReader(conn)
@@ -346,6 +374,7 @@ func readNextPacket() []byte {
 	return data
 }
 
+//WriteWithHeader 写数据包的header+body
 func WriteWithHeader(body []byte) {
 	mutex.Lock()
 	lenth := len(body)
@@ -355,6 +384,7 @@ func WriteWithHeader(body []byte) {
 	mutex.Unlock()
 }
 
+// getWriteHeaderBytes 获取要写数据的长度
 func getWriteHeaderBytes(lenth int) []byte {
 	x := int32(lenth)
 	bytesBuffer := bytes.NewBuffer([]byte{})
@@ -362,6 +392,7 @@ func getWriteHeaderBytes(lenth int) []byte {
 	return bytesBuffer.Bytes()
 }
 
+//Subscribe 订阅
 func (c *SimpleCanalConnector) Subscribe(filter string) {
 	c.waitClientRunning()
 	if !c.Running {
@@ -393,10 +424,12 @@ func (c *SimpleCanalConnector) Subscribe(filter string) {
 
 }
 
+//waitClientRunning 等待客户端跑
 func (c *SimpleCanalConnector) waitClientRunning() {
 	c.Running = true
 }
 
+//checkError 检查错误
 func checkError(err error) {
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Fatal error: %s", err.Error())

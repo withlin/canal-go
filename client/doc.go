@@ -14,13 +14,4 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package position
-
-type TimePosition struct {
-	Timestamp int64
-}
-
-func NewTimePosition(timestamp int64) *TimePosition {
-	tstamp := &TimePosition{Timestamp: timestamp}
-	return tstamp
-}
+package client
