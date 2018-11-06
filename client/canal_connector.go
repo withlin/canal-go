@@ -16,7 +16,7 @@
 
 package client
 
-import protocol "github.com/CanalClient/canal-go/protocol"
+import pb "github.com/CanalClient/canal-go/protocol"
 
 type CanalConnector interface {
 	Connect()
@@ -24,8 +24,8 @@ type CanalConnector interface {
 	CheckValid()
 	Subscribe()
 	UnSubscribe()
-	Get(arg ...interface{}) protocol.Message
-	GetWithoutAck(arg ...interface{}) protocol.Message
+	Get(arg ...interface{}) pb.Message
+	GetWithoutAck(arg ...interface{}) pb.Message
 	Ack(batchId int64)
 	Rollback(arg ...interface{})
 	StopRunning()
