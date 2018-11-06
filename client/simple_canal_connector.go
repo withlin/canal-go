@@ -28,7 +28,7 @@ import (
 	"strconv"
 	"sync"
 
-	protocol "github.com/CanalClient/canal-go/protocol"
+	pb "github.com/CanalClient/canal-go/protocol"
 
 	"github.com/golang/protobuf/proto"
 )
@@ -40,7 +40,7 @@ type SimpleCanalConnector struct {
 	PassWord          string
 	SoTime            int32
 	IdleTimeOut       int32
-	ClientIdentity    protocol.ClientIdentity
+	ClientIdentity    pb.ClientIdentity
 	Connected         bool
 	Running           bool
 	Filter            string
@@ -53,17 +53,19 @@ var (
 	mutex sync.Mutex
 )
 
+//NewSimpleCanalConnector 创建SimpleCanalConnector实例
 func NewSimpleCanalConnector(address string, port int, username string, password string, destination string, soTimeOut int32, idleTimeOut int32) *SimpleCanalConnector {
-	sampleCanalConnector := new(SimpleCanalConnector)
-	sampleCanalConnector.Address = address
-	sampleCanalConnector.Port = port
-	sampleCanalConnector.UserName = username
-	sampleCanalConnector.PassWord = password
-	sampleCanalConnector.ClientIdentity = protocol.ClientIdentity{Destination: destination, ClientId: 1001}
-	sampleCanalConnector.SoTime = soTimeOut
-	sampleCanalConnector.IdleTimeOut = idleTimeOut
-	sampleCanalConnector.RollbackOnConnect = true
-	return sampleCanalConnector
+	s := &SimpleCanalConnector{
+		Address:           address,
+		Port:              port,
+		UserName:          username,
+		PassWord:          password,
+		ClientIdentity:    pb.ClientIdentity{Destination: destination, ClientId: 1001},
+		SoTime:            soTimeOut,
+		IdleTimeOut:       idleTimeOut,
+		RollbackOnConnect: true,
+	}
+	return s
 
 }
 
@@ -115,7 +117,7 @@ func (c SimpleCanalConnector) doConnect() {
 	checkError(err)
 	conn = con
 
-	p := new(protocol.Packet)
+	p := new(pb.Packet)
 	data := readNextPacket()
 	err = proto.Unmarshal(data, p)
 	checkError(err)
@@ -124,23 +126,23 @@ func (c SimpleCanalConnector) doConnect() {
 			panic("unsupported version at this client.")
 		}
 
-		if p.GetType() != protocol.PacketType_HANDSHAKE {
+		if p.GetType() != pb.PacketType_HANDSHAKE {
 			panic("expect handshake but found other type.")
 		}
 
-		handshake := &protocol.Handshake{}
+		handshake := &pb.Handshake{}
 		err = proto.Unmarshal(p.GetBody(), handshake)
 		checkError(err)
 		pas := []byte(c.PassWord)
-		ca := &protocol.ClientAuth{
+		ca := &pb.ClientAuth{
 			Username:               c.UserName,
 			Password:               pas,
-			NetReadTimeoutPresent:  &protocol.ClientAuth_NetReadTimeout{NetReadTimeout: c.IdleTimeOut},
-			NetWriteTimeoutPresent: &protocol.ClientAuth_NetWriteTimeout{NetWriteTimeout: c.IdleTimeOut},
+			NetReadTimeoutPresent:  &pb.ClientAuth_NetReadTimeout{NetReadTimeout: c.IdleTimeOut},
+			NetWriteTimeoutPresent: &pb.ClientAuth_NetWriteTimeout{NetWriteTimeout: c.IdleTimeOut},
 		}
 		caByteArray, _ := proto.Marshal(ca)
-		packet := &protocol.Packet{
-			Type: protocol.PacketType_CLIENTAUTHENTICATION,
+		packet := &pb.Packet{
+			Type: pb.PacketType_CLIENTAUTHENTICATION,
 			Body: caByteArray,
 		}
 
@@ -149,16 +151,16 @@ func (c SimpleCanalConnector) doConnect() {
 		WriteWithHeader(packArray)
 
 		pp := readNextPacket()
-		pk := &protocol.Packet{}
+		pk := &pb.Packet{}
 
 		err = proto.Unmarshal(pp, pk)
 		checkError(err)
 
-		if pk.Type != protocol.PacketType_ACK {
+		if pk.Type != pb.PacketType_ACK {
 			panic("unexpected packet type when ack is expected")
 		}
 
-		ackBody := &protocol.Ack{}
+		ackBody := &pb.Ack{}
 		err = proto.Unmarshal(pk.GetBody(), ackBody)
 
 		if ackBody.GetErrorCode() > 0 {
@@ -173,7 +175,7 @@ func (c SimpleCanalConnector) doConnect() {
 }
 
 //GetWithOutAck 获取数据不Ack
-func (c *SimpleCanalConnector) GetWithOutAck(batchSize int32, timeOut *int64, units *int32) *protocol.Message {
+func (c *SimpleCanalConnector) GetWithOutAck(batchSize int32, timeOut *int64, units *int32) *pb.Message {
 	c.waitClientRunning()
 	if !c.Running {
 		return nil
@@ -198,18 +200,18 @@ func (c *SimpleCanalConnector) GetWithOutAck(batchSize int32, timeOut *int64, un
 	if units == nil {
 		units = &i
 	}
-	get := new(protocol.Get)
-	get.AutoAckPresent = &protocol.Get_AutoAck{AutoAck: false}
+	get := new(pb.Get)
+	get.AutoAckPresent = &pb.Get_AutoAck{AutoAck: false}
 	get.Destination = c.ClientIdentity.Destination
 	get.ClientId = strconv.Itoa(c.ClientIdentity.ClientId)
 	get.FetchSize = size
-	get.TimeoutPresent = &protocol.Get_Timeout{Timeout: *time}
-	get.UnitPresent = &protocol.Get_Unit{Unit: *units}
+	get.TimeoutPresent = &pb.Get_Timeout{Timeout: *time}
+	get.UnitPresent = &pb.Get_Unit{Unit: *units}
 
 	getBody, err := proto.Marshal(get)
 	checkError(err)
-	packet := new(protocol.Packet)
-	packet.Type = protocol.PacketType_GET
+	packet := new(pb.Packet)
+	packet.Type = pb.PacketType_GET
 	packet.Body = getBody
 	pa, err := proto.Marshal(packet)
 	checkError(err)
@@ -219,7 +221,7 @@ func (c *SimpleCanalConnector) GetWithOutAck(batchSize int32, timeOut *int64, un
 }
 
 //Get 获取数据并且Ack数据
-func (c *SimpleCanalConnector) Get(batchSize int32, timeOut *int64, units *int32) *protocol.Message {
+func (c *SimpleCanalConnector) Get(batchSize int32, timeOut *int64, units *int32) *pb.Message {
 	message := c.GetWithOutAck(batchSize, timeOut, units)
 	c.Ack(message.Id)
 	return message
@@ -232,15 +234,15 @@ func (c *SimpleCanalConnector) UnSubscribe() {
 		return
 	}
 
-	us := new(protocol.Unsub)
+	us := new(pb.Unsub)
 	us.Destination = c.ClientIdentity.Destination
 	us.ClientId = strconv.Itoa(c.ClientIdentity.ClientId)
 
 	unSub, err := proto.Marshal(us)
 	checkError(err)
 
-	pa := new(protocol.Packet)
-	pa.Type = protocol.PacketType_UNSUBSCRIPTION
+	pa := new(pb.Packet)
+	pa.Type = pb.PacketType_UNSUBSCRIPTION
 	pa.Body = unSub
 
 	pack, err := proto.Marshal(pa)
@@ -250,7 +252,7 @@ func (c *SimpleCanalConnector) UnSubscribe() {
 	pa = nil
 	err = proto.Unmarshal(p, pa)
 	checkError(err)
-	ack := new(protocol.Ack)
+	ack := new(pb.Ack)
 	err = proto.Unmarshal(pa.Body, ack)
 	checkError(err)
 	if ack.GetErrorCode() > 0 {
@@ -259,22 +261,22 @@ func (c *SimpleCanalConnector) UnSubscribe() {
 }
 
 //receiveMessages 接收Canal-Server返回的消息体
-func (c *SimpleCanalConnector) receiveMessages() *protocol.Message {
+func (c *SimpleCanalConnector) receiveMessages() *pb.Message {
 	data := readNextPacket()
-	p := new(protocol.Packet)
+	p := new(pb.Packet)
 	err := proto.Unmarshal(data, p)
 	checkError(err)
-	messages := new(protocol.Messages)
-	message := new(protocol.Message)
+	messages := new(pb.Messages)
+	message := new(pb.Message)
 
 	length := len(messages.Messages)
-	message.Entries = make([]protocol.Entry, length)
-	ack := new(protocol.Ack)
-	var items []protocol.Entry
-	var entry protocol.Entry
+	message.Entries = make([]pb.Entry, length)
+	ack := new(pb.Ack)
+	var items []pb.Entry
+	var entry pb.Entry
 	switch p.Type {
-	case protocol.PacketType_MESSAGES:
-		if !(p.GetCompression() == protocol.Compression_NONE) {
+	case pb.PacketType_MESSAGES:
+		if !(p.GetCompression() == pb.Compression_NONE) {
 			panic("compression is not supported in this connector")
 		}
 		err := proto.Unmarshal(p.Body, messages)
@@ -293,7 +295,7 @@ func (c *SimpleCanalConnector) receiveMessages() *protocol.Message {
 		message.Id = messages.GetBatchId()
 		return message
 
-	case protocol.PacketType_ACK:
+	case pb.PacketType_ACK:
 		err := proto.Unmarshal(p.Body, ack)
 		checkError(err)
 		panic(errors.New(fmt.Sprintf("something goes wrong with reason:%s", ack.GetErrorMessage())))
@@ -310,15 +312,15 @@ func (c *SimpleCanalConnector) Ack(batchId int64) {
 		return
 	}
 
-	ca := new(protocol.ClientAck)
+	ca := new(pb.ClientAck)
 	ca.Destination = c.ClientIdentity.Destination
 	ca.ClientId = strconv.Itoa(c.ClientIdentity.ClientId)
 	ca.BatchId = batchId
 
 	clientAck, err := proto.Marshal(ca)
 	checkError(err)
-	pa := new(protocol.Packet)
-	pa.Type = protocol.PacketType_CLIENTACK
+	pa := new(pb.Packet)
+	pa.Type = pb.PacketType_CLIENTACK
 	pa.Body = clientAck
 	pack, err := proto.Marshal(pa)
 	checkError(err)
@@ -329,7 +331,7 @@ func (c *SimpleCanalConnector) Ack(batchId int64) {
 //RollBack 回滚操作
 func (c *SimpleCanalConnector) RollBack(batchId int64) {
 	c.waitClientRunning()
-	cb := new(protocol.ClientRollback)
+	cb := new(pb.ClientRollback)
 	cb.Destination = c.ClientIdentity.Destination
 	cb.ClientId = strconv.Itoa(c.ClientIdentity.ClientId)
 	cb.BatchId = batchId
@@ -337,8 +339,8 @@ func (c *SimpleCanalConnector) RollBack(batchId int64) {
 	clientBollBack, err := proto.Marshal(cb)
 	checkError(err)
 
-	pa := new(protocol.Packet)
-	pa.Type = protocol.PacketType_CLIENTROLLBACK
+	pa := new(pb.Packet)
+	pa.Type = pb.PacketType_CLIENTROLLBACK
 	pa.Body = clientBollBack
 	pack, err := proto.Marshal(pa)
 	checkError(err)
@@ -398,20 +400,20 @@ func (c *SimpleCanalConnector) Subscribe(filter string) {
 	if !c.Running {
 		return
 	}
-	body, _ := proto.Marshal(&protocol.Sub{Destination: c.ClientIdentity.Destination, ClientId: strconv.Itoa(c.ClientIdentity.ClientId), Filter: c.Filter})
-	pack := new(protocol.Packet)
-	pack.Type = protocol.PacketType_SUBSCRIPTION
+	body, _ := proto.Marshal(&pb.Sub{Destination: c.ClientIdentity.Destination, ClientId: strconv.Itoa(c.ClientIdentity.ClientId), Filter: c.Filter})
+	pack := new(pb.Packet)
+	pack.Type = pb.PacketType_SUBSCRIPTION
 	pack.Body = body
 
 	packet, _ := proto.Marshal(pack)
 	WriteWithHeader(packet)
 
-	p := new(protocol.Packet)
+	p := new(pb.Packet)
 
 	paBytes := readNextPacket()
 	err := proto.Unmarshal(paBytes, p)
 	checkError(err)
-	ack := new(protocol.Ack)
+	ack := new(pb.Ack)
 	err = proto.Unmarshal(p.Body, ack)
 	checkError(err)
 
