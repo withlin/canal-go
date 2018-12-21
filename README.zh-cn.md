@@ -79,12 +79,24 @@ go get  github.com/CanalSharp/canal-go
 ````golang
 
 connector := client.NewSimpleCanalConnector("192.168.199.17", 11111, "", "", "example", 60000, 60*60*1000)
-	connector.Connect()
-	connector.Subscribe(".*\\\\..*")
+	err :=connector.Connect()
+	if err != nil {
+		log.Println(err)
+		os.Exit(1)
+	}
+	err = connector.Subscribe(".*\\\\..*")
+	if err != nil {
+		log.Println(err)
+		os.Exit(1)
+	}
 
 	for {
 
-		message := connector.Get(100, nil, nil)
+		message,err := connector.Get(100, nil, nil)
+		if err != nil {
+			log.Println(err)
+			os.Exit(1)
+		}
 		batchId := message.Id
 		if batchId == -1 || len(message.Entries) <= 0 {
 			time.Sleep(300 * time.Millisecond)
@@ -95,7 +107,6 @@ connector := client.NewSimpleCanalConnector("192.168.199.17", 11111, "", "", "ex
 		printEntry(message.Entries)
 
 	}
-
 ````
 
 更多详情请查看 [Sample](https://github.com/CanalSharp/canal-go/tree/master/samples)
