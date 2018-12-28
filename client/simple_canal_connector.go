@@ -421,6 +421,9 @@ func readHeaderLength() int {
 //readNextPacket 通过长度去读取数据包
 func readNextPacket() ([]byte,error) {
 	mutex.Lock()
+	defer func(){
+		mutex.Unlock()
+	}()
 	rdr := bufio.NewReader(conn)
 	data := make([]byte, 0, 4*1024)
 	n, err := io.ReadFull(rdr, data[:4])
@@ -437,7 +440,6 @@ func readNextPacket() ([]byte,error) {
 		return  nil,err
 	}
 	data = data[:n]
-	mutex.Unlock()
 	return data,nil
 }
 
