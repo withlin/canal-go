@@ -78,9 +78,9 @@ func (c *SimpleCanalConnector) Connect() error {
 		return nil
 	}
 
-    err :=c.doConnect()
+	err := c.doConnect()
 	if err != nil {
-		return  err
+		return err
 	}
 	if c.Filter != "" {
 		c.Subscribe(c.Filter)
@@ -118,18 +118,18 @@ func (c SimpleCanalConnector) doConnect() error {
 	address := c.Address + ":" + fmt.Sprintf("%d", c.Port)
 	con, err := net.Dial("tcp", address)
 	if err != nil {
-		return  err
+		return err
 	}
 	conn = con
 
 	p := new(pb.Packet)
-	data,err := readNextPacket()
+	data, err := readNextPacket()
 	if err != nil {
 		return err
 	}
 	err = proto.Unmarshal(data, p)
 	if err != nil {
-		return  err
+		return err
 	}
 	if p != nil {
 		if p.GetVersion() != 1 {
@@ -143,7 +143,7 @@ func (c SimpleCanalConnector) doConnect() error {
 		handshake := &pb.Handshake{}
 		err = proto.Unmarshal(p.GetBody(), handshake)
 		if err != nil {
-			return  err
+			return err
 		}
 		pas := []byte(c.PassWord)
 		ca := &pb.ClientAuth{
@@ -162,15 +162,15 @@ func (c SimpleCanalConnector) doConnect() error {
 
 		WriteWithHeader(packArray)
 
-		pp,err := readNextPacket()
+		pp, err := readNextPacket()
 		if err != nil {
-			return  err
+			return err
 		}
 		pk := &pb.Packet{}
 
 		err = proto.Unmarshal(pp, pk)
 		if err != nil {
-			return  err
+			return err
 		}
 
 		if pk.Type != pb.PacketType_ACK {
@@ -180,7 +180,7 @@ func (c SimpleCanalConnector) doConnect() error {
 		ackBody := &pb.Ack{}
 		err = proto.Unmarshal(pk.GetBody(), ackBody)
 		if err != nil {
-			return  err
+			return err
 		}
 		if ackBody.GetErrorCode() > 0 {
 
@@ -198,7 +198,7 @@ func (c SimpleCanalConnector) doConnect() error {
 func (c *SimpleCanalConnector) GetWithOutAck(batchSize int32, timeOut *int64, units *int32) (*pb.Message, error) {
 	c.waitClientRunning()
 	if !c.Running {
-		return nil,nil
+		return nil, nil
 	}
 	var size int32
 
@@ -230,31 +230,31 @@ func (c *SimpleCanalConnector) GetWithOutAck(batchSize int32, timeOut *int64, un
 
 	getBody, err := proto.Marshal(get)
 	if err != nil {
-		return  nil,err
+		return nil, err
 	}
 	packet := new(pb.Packet)
 	packet.Type = pb.PacketType_GET
 	packet.Body = getBody
 	pa, err := proto.Marshal(packet)
 	if err != nil {
-		return  nil,err
+		return nil, err
 	}
 	WriteWithHeader(pa)
-	message,err := c.receiveMessages()
+	message, err := c.receiveMessages()
 	if err != nil {
-		return  nil,err
+		return nil, err
 	}
-	return message,nil
+	return message, nil
 }
 
 //Get 获取数据并且Ack数据
-func (c *SimpleCanalConnector) Get(batchSize int32, timeOut *int64, units *int32) (*pb.Message,error) {
-	message,err := c.GetWithOutAck(batchSize, timeOut, units)
+func (c *SimpleCanalConnector) Get(batchSize int32, timeOut *int64, units *int32) (*pb.Message, error) {
+	message, err := c.GetWithOutAck(batchSize, timeOut, units)
 	if err != nil {
-		return  nil,err
+		return nil, err
 	}
 	c.Ack(message.Id)
-	return message,nil
+	return message, nil
 }
 
 //UnSubscribe 取消订阅
@@ -270,7 +270,7 @@ func (c *SimpleCanalConnector) UnSubscribe() error {
 
 	unSub, err := proto.Marshal(us)
 	if err != nil {
-		return  err
+		return err
 	}
 
 	pa := new(pb.Packet)
@@ -280,19 +280,19 @@ func (c *SimpleCanalConnector) UnSubscribe() error {
 	pack, err := proto.Marshal(pa)
 	WriteWithHeader(pack)
 
-	p ,err:= readNextPacket()
+	p, err := readNextPacket()
 	if err != nil {
-		return  err
+		return err
 	}
 	pa = nil
 	err = proto.Unmarshal(p, pa)
 	if err != nil {
-		return  err
+		return err
 	}
 	ack := new(pb.Ack)
 	err = proto.Unmarshal(pa.Body, ack)
 	if err != nil {
-		return  err
+		return err
 	}
 	if ack.GetErrorCode() > 0 {
 		panic(errors.New(fmt.Sprintf("failed to unSubscribe with reason:%s", ack.GetErrorMessage())))
@@ -301,15 +301,15 @@ func (c *SimpleCanalConnector) UnSubscribe() error {
 }
 
 //receiveMessages 接收Canal-Server返回的消息体
-func (c *SimpleCanalConnector) receiveMessages() (*pb.Message,error) {
-	data ,err:= readNextPacket()
+func (c *SimpleCanalConnector) receiveMessages() (*pb.Message, error) {
+	data, err := readNextPacket()
 	if err != nil {
-		return  nil,err
+		return nil, err
 	}
 	p := new(pb.Packet)
 	err = proto.Unmarshal(data, p)
 	if err != nil {
-		return  nil,err
+		return nil, err
 	}
 	messages := new(pb.Messages)
 	message := new(pb.Message)
@@ -326,7 +326,7 @@ func (c *SimpleCanalConnector) receiveMessages() (*pb.Message,error) {
 		}
 		err := proto.Unmarshal(p.Body, messages)
 		if err != nil {
-			return  nil,err
+			return nil, err
 		}
 		if c.LazyParseEntry {
 			message.RawEntries = messages.Messages
@@ -335,19 +335,19 @@ func (c *SimpleCanalConnector) receiveMessages() (*pb.Message,error) {
 			for _, value := range messages.Messages {
 				err := proto.Unmarshal(value, &entry)
 				if err != nil {
-					return  nil,err
+					return nil, err
 				}
 				items = append(items, entry)
 			}
 		}
 		message.Entries = items
 		message.Id = messages.GetBatchId()
-		return message,nil
+		return message, nil
 
 	case pb.PacketType_ACK:
 		err := proto.Unmarshal(p.Body, ack)
 		if err != nil {
-			return  nil,err
+			return nil, err
 		}
 		panic(errors.New(fmt.Sprintf("something goes wrong with reason:%s", ack.GetErrorMessage())))
 	default:
@@ -377,10 +377,10 @@ func (c *SimpleCanalConnector) Ack(batchId int64) error {
 	pa.Body = clientAck
 	pack, err := proto.Marshal(pa)
 	if err != nil {
-		return  err
+		return err
 	}
 	WriteWithHeader(pack)
-	return  nil
+	return nil
 
 }
 
@@ -394,7 +394,7 @@ func (c *SimpleCanalConnector) RollBack(batchId int64) error {
 
 	clientBollBack, err := proto.Marshal(cb)
 	if err != nil {
-		return  err
+		return err
 	}
 
 	pa := new(pb.Packet)
@@ -402,10 +402,10 @@ func (c *SimpleCanalConnector) RollBack(batchId int64) error {
 	pa.Body = clientBollBack
 	pack, err := proto.Marshal(pa)
 	if err != nil {
-		return  err
+		return err
 	}
 	WriteWithHeader(pack)
-	return  nil
+	return nil
 }
 
 // readHeaderLength 读取protobuf的header字节，该字节存取了你要读的package的长度
@@ -419,16 +419,16 @@ func readHeaderLength() int {
 }
 
 //readNextPacket 通过长度去读取数据包
-func readNextPacket() ([]byte,error) {
+func readNextPacket() ([]byte, error) {
 	mutex.Lock()
-	defer func(){
+	defer func() {
 		mutex.Unlock()
 	}()
 	rdr := bufio.NewReader(conn)
 	data := make([]byte, 0, 4*1024)
 	n, err := io.ReadFull(rdr, data[:4])
 	if err != nil {
-		return  nil,err
+		return nil, err
 	}
 	data = data[:n]
 	dataLen := binary.BigEndian.Uint32(data)
@@ -437,10 +437,10 @@ func readNextPacket() ([]byte,error) {
 	}
 	n, err = io.ReadFull(rdr, data[:dataLen])
 	if err != nil {
-		return  nil,err
+		return nil, err
 	}
 	data = data[:n]
-	return data,nil
+	return data, nil
 }
 
 //WriteWithHeader 写数据包的header+body
@@ -477,18 +477,18 @@ func (c *SimpleCanalConnector) Subscribe(filter string) error {
 
 	p := new(pb.Packet)
 
-	paBytes,err := readNextPacket()
+	paBytes, err := readNextPacket()
 	if err != nil {
-		return  err
+		return err
 	}
 	err = proto.Unmarshal(paBytes, p)
 	if err != nil {
-		return  err
+		return err
 	}
 	ack := new(pb.Ack)
 	err = proto.Unmarshal(p.Body, ack)
 	if err != nil {
-		return  err
+		return err
 	}
 
 	if ack.GetErrorCode() > 0 {
@@ -497,7 +497,7 @@ func (c *SimpleCanalConnector) Subscribe(filter string) error {
 	}
 
 	c.Filter = filter
-	return  nil
+	return nil
 
 }
 
@@ -505,4 +505,3 @@ func (c *SimpleCanalConnector) Subscribe(filter string) error {
 func (c *SimpleCanalConnector) waitClientRunning() {
 	c.Running = true
 }
-
