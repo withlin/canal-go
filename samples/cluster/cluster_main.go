@@ -39,7 +39,7 @@ func main() {
 
 func createConn() (conn *client.ClusterCanalConnector, err error) {
 
-	cn, err := client.NewCanalClusterNode("example", []string{"kafka:2181"}, time.Second*10)
+	cn, err := client.NewCanalClusterNode("example", []string{"zookeeper:2181"}, time.Second*10)
 	fmt.Printf("err=%v,cn=%+v\n\n", err, cn)
 
 	addr, port, err := cn.GetNode()
