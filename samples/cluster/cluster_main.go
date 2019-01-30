@@ -5,8 +5,8 @@ import (
 	"log"
 	"time"
 
+	"github.com/CanalClient/canal-go/client"
 	protocol "github.com/CanalClient/canal-go/protocol"
-	"github.com/althen/canal-go/client"
 )
 
 func main() {
