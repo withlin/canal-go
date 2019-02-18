@@ -24,14 +24,13 @@ import (
 
 	"github.com/CanalClient/canal-go/client"
 	protocol "github.com/CanalClient/canal-go/protocol"
-
 	"github.com/golang/protobuf/proto"
 )
 
 func main() {
 
 	connector := client.NewSimpleCanalConnector("192.168.199.17", 11111, "", "", "example", 60000, 60*60*1000)
-	err :=connector.Connect()
+	err := connector.Connect()
 	if err != nil {
 		log.Println(err)
 		os.Exit(1)
@@ -44,7 +43,7 @@ func main() {
 
 	for {
 
-		message,err := connector.Get(100, nil, nil)
+		message, err := connector.Get(100, nil, nil)
 		if err != nil {
 			log.Println(err)
 			os.Exit(1)
