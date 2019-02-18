@@ -1,84 +1,80 @@
 
-# canal-go                                              |[中文](https://github.com/CanalSharp/canal-go/blob/master/README.zh-cn.md)
+# canal-go
 
 [![Build Status](https://travis-ci.org/CanalClient/canal-go.svg?branch=master)](https://travis-ci.org/CanalSharp/canal-go)
 
-## Ⅰ.What is canal-go
+## 一.canal-go是什么?
 
-canal-go is a golang Client of alibaba's open source component `Canal`,and it provides golang developer a much easier way to use Canal.
+canal-go (完全兼容java客户端)  是阿里巴巴开源项目 Canal 的 golang 客户端。为 golang 开发者提供一个更友好的使用 Canal 的方式。Canal 是mysql数据库binlog的增量订阅&消费组件。
 
- `Cancal` is a incremental Publish&Subscription component based on mysql's `binlog`.To learn more a bout Cancal,please visit ` https://github.com/alibaba/canal/wiki`
+基于日志增量订阅&消费支持的业务：
 
- log based incremental pub&sub model  can be applied to  many business cases:
+1. 数据库镜像
+2. 数据库实时备份
+3. 多级索引 (卖家和买家各自分库索引)
+4. search build
+5. 业务cache刷新
+6. 价格变化等重要业务消息
 
-1) Database Mirroring
-2) Realtime Database backup
-3) Multi-level index
-4) search build
-5) Busienss cache refresh
-6) Notification on price change(in e-commerce site) and so on
+关于 Canal 的更多信息请访问 https://github.com/alibaba/canal/wiki
 
-## Ⅱ.Using scenarios
+## 二.应用场景
 
-`canal-go` as a golang client of canal,it can be used in situations where Canal is being used.We have listed some using scenarios above,here are some more detailed use cases:
+canal-go作为Canal的客户端，其应用场景就是Canal的应用场景。关于应用场景在Canal介绍一节已有概述。举一些实际的使用例子：
 
-1) As a substitution of polling Database to monitor Database changes,it is much more effective than polling.
+1.代替使用轮询数据库方式来监控数据库变更，有效改善轮询耗费数据库资源。
 
-2) Realtime Update data in search engine when data in mysql database changed.For example,in a E-commerce site,when Product information changed,it can be updated to Elasticsearch、solr,etc in a realtime way.
+2.根据数据库的变更实时更新搜索引擎，比如电商场景下商品信息发生变更，实时同步到商品搜索引擎 Elasticsearch、solr等
 
-3) Realtime update data in cache,Also take E-commerce site as an example,when price,inventory and other product information changed,it can be updated to Redis in a realtime way.
+3.根据数据库的变更实时更新缓存，比如电商场景下商品价格、库存发生变更实时同步到redis
 
-4) Database Backup,synchronization.
+4.数据库异地备份、数据同步
 
-5) To trigger some other business logics on data change,for example,when a customer place an order without payment in a certain period of time and so the order is cancelled automatically,we get the changed status of the order and then we can push a notification to the customer(or take some other actions)
+5.根据数据库变更触发某种业务，比如电商场景下，创建订单超过xx时间未支付被自动取消，我们获取到这条订单数据的状态变更即可向用户推送消息。
 
-6) Push changed data to RabbitMq,kafak or other message queues for consuming.
+6.将数据库变更整理成自己的数据格式发送到kafka等消息队列，供消息队列的消费者进行消费。
 
-## Ⅲ.Working  mechanism
+## 三.工作原理
 
-As a golang client of Canal,it use `Socket` for communication,the transfer Protocol is `TCP`,and the data exchange Protocol is Google's Protocol Buffer 3.0
+canal-go  是 Canal 的 golang 客户端，它与 Canal 是采用的Socket来进行通信的，传输协议是TCP，交互协议采用的是 Google Protocol Buffer 3.0。
 
-## Ⅳ.Workflow
+## 四.工作流程
 
-1) Canal connect to Mysql database ,pretented to be a slave of mysql
+1.Canal连接到mysql数据库，模拟slave
 
-2) canal-go(as mentioned it is a client of Cancal) connect to Canal
+2.canal-go与Canal建立连接
 
-3) When data in the database changed,it write the changes to binlog
+2.数据库发生变更写入到binlog
 
-4) Canal send dump request to mysql database,get binlog and then parse it.
+5.Canal向数据库发送dump请求，获取binlog并解析
 
-5) canal-go send request to Canal for data.
+4.canal-go向Canal请求数据库变更
 
-6) Canal send parsed data to canal-go
+4.Canal发送解析后的数据给canal-go
 
-7) canal-go get data successfully and then send an acknowledgement to Canal(optional)
+5.canal-go收到数据，消费成功，发送回执。（可选）
 
-8) Canal record the consumption position
+6.Canal记录消费位置。
 
-The following picture shows how it works:
-
+以一张图来表示：
 
 ![1537860226808](assets/668104-20180925182816462-2110152563.png)
 
-## Ⅴ.Quick Start
+## 五.快速入门
 
-### 1. Install Canal
+### 1.安装Canal
 
-To Install and configure Canal,please visit `https://github.com/alibaba/canal/wiki/QuickStart` for information
+Canal的安装以及配置使用请查看 https://github.com/alibaba/canal/wiki/QuickStart
 
-### 2.Create a golang Console Project
+### 2.建立一个golang  控制台项目
 
-### 3. Install go get  from github source
+### 3.为该项目从 go get 安装 canal-go
 
 ````shell
 go get  github.com/CanalSharp/canal-go
 ````
 
-or you can install it from nuget manager(a graphic ui)  in visual studio
-
-### 4. Connect to Canal
-
+### 4.建立与Canal的连接
 
 ````golang
 
@@ -111,14 +107,13 @@ connector := client.NewSimpleCanalConnector("192.168.199.17", 11111, "", "", "ex
 		printEntry(message.Entries)
 
 	}
-
 ````
 
-for more detailed information please visit [Sample](https://github.com/CanalSharp/canal-go/tree/master/samples)
+更多详情请查看 [Sample](https://github.com/CanalSharp/canal-go/tree/master/samples)
 
-## Ⅵ Run canal-go via Docker quickly
+## 六.通过docker方式快速运行canal-go
 
-### 1. Run mysql and canal by command
+### 1.执行命令通过docker方式运行 mysql与canal
 
 ````shell
 git clone https://github.com/CanalClient/canal-go.git
@@ -127,25 +122,25 @@ cd docker
 docker-compose up -d
 ````
 
-### 2. Use navicat or orther  client to connect to mysql
+### 2.使用navicat等数据库管理工具连接mysql
 
-ip：the ip address of the server where docker running
+ip：运行docker的服务器ip
 
-mysql username：root
+mysql用户：root
 
-mysql password：000000
+mysql密码：000000
 
-mysql port：4406
+mysql端口：4406
 
-There is a default database named `test`,which contains a table named `test`
+默认提供了一个test数据库，然后有一张名为test的表。
 
 ![1537866852816](assets/668104-20180925182815646-1209020640.png)
 
-### 3.run the sample project
+### 3.运行Sample项目
 
-### 4.Test it
+### 4.测试
 
-Execute the following sql:
+执行下列sql:
 
 ````sql
 insert into test values(1000,'111');
@@ -153,24 +148,15 @@ update test set name='222' where id=1000;
 delete from test where id=1000;
 ````
 
-![](assets/ys.gif)
 
-we can see that after executing `insrt,update,delete` sql,Our canal-go get the changed data.
-
+可以看见我们分别执行 insert、update、delete 语句，我们的canal-go都获取到了数据库变更。
 
 
-## Ⅶ What we will do next
 
-canal-go clustering support
+## 八.贡献代码
 
-## Ⅷ Contribute
+1.fork本项目
 
-We gladly accept community contributions.
+2.做出你的更改
 
-1.fork the canal-go Project
-
-2.make changes to it
-
-3.make a pull request
-
-Please do not hesitate to make a pull request,your effort will not in vain.
+3.提交 pull request
