@@ -71,7 +71,10 @@ Canal的安装以及配置使用请查看 https://github.com/alibaba/canal/wiki/
 ### 3.为该项目从 go get 安装 canal-go
 
 ````shell
-go get  github.com/CanalSharp/canal-go
+export GO111MODULE=on
+go get -u github.com/CanalClient/canal-go
+cd $GOPATH/src/github.com/CanalClient/canal-go
+go mod vendor
 ````
 
 ### 4.建立与Canal的连接
