@@ -66,18 +66,20 @@ canal-go  是 Canal 的 golang 客户端，它与 Canal 是采用的Socket来进
 
 Canal的安装以及配置使用请查看 https://github.com/alibaba/canal/wiki/QuickStart
 
-### 2.建立一个golang  控制台项目
 
-### 3.为该项目从 go get 安装 canal-go
+### 2.安装
 
 ````shell
+
+git clone github.com/CanalClient/canal-go
+
 export GO111MODULE=on
-go get -u github.com/CanalClient/canal-go
-cd $GOPATH/src/github.com/CanalClient/canal-go
+
 go mod vendor
+
 ````
 
-### 4.建立与Canal的连接
+### 3.建立与Canal的连接
 
 ````golang
 
