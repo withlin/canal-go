@@ -71,7 +71,7 @@ Canal的安装以及配置使用请查看 https://github.com/alibaba/canal/wiki/
 
 ````shell
 
-git clone github.com/CanalClient/canal-go
+git clone https://github.com/withlin/canal-go.git
 
 export GO111MODULE=on
 
