@@ -306,54 +306,7 @@ func (c *SimpleCanalConnector) receiveMessages() (*pb.Message, error) {
 	if err != nil {
 		return nil, err
 	}
-	p := new(pb.Packet)
-	err = proto.Unmarshal(data, p)
-	if err != nil {
-		return nil, err
-	}
-	messages := new(pb.Messages)
-	message := new(pb.Message)
-
-	length := len(messages.Messages)
-	message.Entries = make([]pb.Entry, length)
-	ack := new(pb.Ack)
-	var items []pb.Entry
-	var entry pb.Entry
-	switch p.Type {
-	case pb.PacketType_MESSAGES:
-		if !(p.GetCompression() == pb.Compression_NONE) {
-			panic("compression is not supported in this connector")
-		}
-		err := proto.Unmarshal(p.Body, messages)
-		if err != nil {
-			return nil, err
-		}
-		if c.LazyParseEntry {
-			message.RawEntries = messages.Messages
-		} else {
-
-			for _, value := range messages.Messages {
-				err := proto.Unmarshal(value, &entry)
-				if err != nil {
-					return nil, err
-				}
-				items = append(items, entry)
-			}
-		}
-		message.Entries = items
-		message.Id = messages.GetBatchId()
-		return message, nil
-
-	case pb.PacketType_ACK:
-		err := proto.Unmarshal(p.Body, ack)
-		if err != nil {
-			return nil, err
-		}
-		panic(errors.New(fmt.Sprintf("something goes wrong with reason:%s", ack.GetErrorMessage())))
-	default:
-		panic(errors.New(fmt.Sprintf("unexpected packet type:%s", p.Type)))
-
-	}
+	return pb.Decode(data, c.LazyParseEntry)
 }
 
 //Ack Ack Canal-server的数据（就是昨晚某些逻辑操作后删除canal-server端的数据）
