@@ -420,7 +420,7 @@ func (c *SimpleCanalConnector) Subscribe(filter string) error {
 	if !c.Running {
 		return nil
 	}
-	body, _ := proto.Marshal(&pb.Sub{Destination: c.ClientIdentity.Destination, ClientId: strconv.Itoa(c.ClientIdentity.ClientId), Filter: c.Filter})
+	body, _ := proto.Marshal(&pb.Sub{Destination: c.ClientIdentity.Destination, ClientId: strconv.Itoa(c.ClientIdentity.ClientId), Filter: filter})
 	pack := new(pb.Packet)
 	pack.Type = pb.PacketType_SUBSCRIPTION
 	pack.Body = body
@@ -445,13 +445,12 @@ func (c *SimpleCanalConnector) Subscribe(filter string) error {
 	}
 
 	if ack.GetErrorCode() > 0 {
-
-		panic(errors.New(fmt.Sprintf("failed to subscribe with reason::%s", ack.GetErrorMessage())))
+		return fmt.Errorf("failed to subscribe with reason::%s", ack.GetErrorMessage())
 	}
 
 	c.Filter = filter
-	return nil
 
+	return nil
 }
 
 //waitClientRunning 等待客户端跑
