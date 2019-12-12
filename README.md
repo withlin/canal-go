@@ -84,13 +84,14 @@ go mod vendor
 
 ````golang
 
-connector := client.NewSimpleCanalConnector("192.168.199.17", 11111, "", "", "example", 60000, 60*60*1000)
+    connector := client.NewSimpleCanalConnector("192.168.199.17", 11111, "", "", "example", 60000, 60*60*1000)
 	err :=connector.Connect()
 	if err != nil {
 		log.Println(err)
 		os.Exit(1)
 	}
-	err = connector.Subscribe(".*\\\\..*")
+
+	err = connector.Subscribe(".*\\..*")
 	if err != nil {
 		log.Println(err)
 		os.Exit(1)
