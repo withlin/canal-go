@@ -253,7 +253,10 @@ func (c *SimpleCanalConnector) Get(batchSize int32, timeOut *int64, units *int32
 	if err != nil {
 		return nil, err
 	}
-	c.Ack(message.Id)
+	err = c.Ack(message.Id)
+	if err != nil {
+		return nil, err
+	}
 	return message, nil
 }
 
