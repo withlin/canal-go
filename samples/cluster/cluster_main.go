@@ -10,9 +10,7 @@ import (
 	"time"
 )
 
-var (
-	conn         *client.ClusterCanalConnector
-)
+var conn *client.ClusterCanalConnector
 
 func main() {
 	conn = createConnection()
