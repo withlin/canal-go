@@ -2,57 +2,116 @@ package main
 
 import (
 	"fmt"
-	"log"
-	"time"
-
 	"github.com/CanalClient/canal-go/client"
 	protocol "github.com/CanalClient/canal-go/protocol"
+	"github.com/gogo/protobuf/proto"
+	"log"
+	"os"
+	"time"
 )
 
-func main() {
+var conn *client.ClusterCanalConnector
 
-	fmt.Println("cluster main")
-	conn, _ := createConn()
-	conn.Subscribe(".*\\\\..*")
-	n := 0
+func main() {
+	conn = createConnection()
+	subscribe(conn, ".*\\..*")
+
+	fmt.Println("canal start listening...")
+	listen()
+	err := conn.DisConnection()
+	if err != nil {
+		fmt.Println(err)
+	}
+}
+
+func listen() {
 	for {
 		message, err := conn.Get(100, nil, nil)
 		if err != nil {
-			log.Println(err)
-			continue
+			fmt.Println(err)
+			return
 		}
+
 		batchId := message.Id
 		if batchId == -1 || len(message.Entries) <= 0 {
-			time.Sleep(3000 * time.Millisecond)
-			fmt.Println("===没有数据了===")
-			n++
-			if n > 100 {
-				break
-			}
+			time.Sleep(200 * time.Millisecond)
 			continue
 		}
+
 		printEntry(message.Entries)
 	}
-
-	conn.DisConnection()
 }
 
-func createConn() (conn *client.ClusterCanalConnector, err error) {
+func subscribe(conn *client.ClusterCanalConnector, str string) {
+	err := conn.Subscribe(str)
+	if err != nil {
+		log.Println(err)
+		os.Exit(1)
+	}
+}
 
-	cn, err := client.NewCanalClusterNode("example", []string{"zookeeper:2181"}, time.Second*10)
-	fmt.Printf("err=%v,cn=%+v\n\n", err, cn)
+func createConnection() *client.ClusterCanalConnector {
+	cn, err := client.NewCanalClusterNode("example", []string{"192.168.0.201:2181", "192.168.0.202:2181", "192.168.0.203:2181"}, time.Second*10)
+	if err != nil {
+		log.Println(err)
+		os.Exit(1)
+	}
 
-	addr, port, err := cn.GetNode()
-	fmt.Printf("addr=%s, port=%d, err=%v", addr, port, err)
+	canalConnector, err := client.NewClusterCanalConnector(cn, "", "", "example", 60000, 60*60*1000)
+	if err != nil {
+		log.Println(err)
+		os.Exit(1)
+	}
 
-	conn = client.NewClusterCanalConnector(cn, "", "", "example", 60000, 60*60*1000)
-	err = conn.Connect()
-	fmt.Printf("err=%v,cluCanalConn=%+vn\n", err, conn)
-	return
+	err = canalConnector.Connect()
+	if err != nil {
+		log.Println(err)
+		os.Exit(1)
+	}
+
+	return canalConnector
 }
 
 func printEntry(entrys []protocol.Entry) {
+
 	for _, entry := range entrys {
-		fmt.Printf("entry type:%d\n", entry.GetEntryType())
+		if entry.GetEntryType() == protocol.EntryType_TRANSACTIONBEGIN || entry.GetEntryType() == protocol.EntryType_TRANSACTIONEND {
+			continue
+		}
+		rowChange := new(protocol.RowChange)
+
+		err := proto.Unmarshal(entry.GetStoreValue(), rowChange)
+		checkError(err)
+		if rowChange != nil {
+			eventType := rowChange.GetEventType()
+			header := entry.GetHeader()
+			fmt.Println(fmt.Sprintf("================> binlog[%s : %d],name[%s,%s], eventType: %s", header.GetLogfileName(), header.GetLogfileOffset(), header.GetSchemaName(), header.GetTableName(), header.GetEventType()))
+
+			for _, rowData := range rowChange.GetRowDatas() {
+				if eventType == protocol.EventType_DELETE {
+					printColumn(rowData.GetBeforeColumns())
+				} else if eventType == protocol.EventType_INSERT {
+					printColumn(rowData.GetAfterColumns())
+				} else {
+					fmt.Println("-------> before")
+					printColumn(rowData.GetBeforeColumns())
+					fmt.Println("-------> after")
+					printColumn(rowData.GetAfterColumns())
+				}
+			}
+		}
+	}
+}
+
+func printColumn(columns []*protocol.Column) {
+	for _, col := range columns {
+		fmt.Println(fmt.Sprintf("%s : %s  update= %t", col.GetName(), col.GetValue(), col.GetUpdated()))
+	}
+}
+
+func checkError(err error) {
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Fatal error: %s", err.Error())
+		os.Exit(1)
 	}
 }
