@@ -60,6 +60,7 @@ func Decode(data []byte, lazyParseEntry bool) (*Message, error) {
 		}
 		if lazyParseEntry {
 			message.RawEntries = messages.Messages
+			message.Raw = true
 		} else {
 
 			for _, value := range messages.Messages {
