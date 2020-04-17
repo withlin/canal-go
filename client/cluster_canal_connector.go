@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	pb "github.com/CanalClient/canal-go/protocol"
+	pb "github.com/withlin/canal-go/protocol"
 )
 
 type ClusterCanalConnector struct {
