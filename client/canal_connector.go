@@ -16,7 +16,7 @@
 
 package client
 
-import pb "github.com/CanalClient/canal-go/protocol"
+import pb "github.com/withlin/canal-go/protocol"
 
 type CanalConnector interface {
 	Connect()
