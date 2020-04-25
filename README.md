@@ -123,7 +123,7 @@ go mod vendor
 ### 1.执行命令通过docker方式运行 mysql与canal
 
 ````shell
-git clone https://github.com/CanalClient/canal-go.git
+git clone https://github.com/withlin/canal-go.git
 cd canal-go
 cd docker
 docker-compose up -d
