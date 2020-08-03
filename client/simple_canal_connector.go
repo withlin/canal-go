@@ -105,12 +105,13 @@ func quitelyClose() {
 }
 
 //DisConnection 关闭连接
-func (c *SimpleCanalConnector) DisConnection() {
+func (c *SimpleCanalConnector) DisConnection() error {
 	if c.RollbackOnConnect && c.Connected == true {
 		c.RollBack(0)
 	}
 	c.Connected = false
 	quitelyClose()
+	return nil
 }
 
 //doConnect 去连接Canal-Server
