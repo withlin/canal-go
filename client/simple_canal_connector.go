@@ -304,7 +304,8 @@ func (c *SimpleCanalConnector) UnSubscribe() error {
 		return err
 	}
 	if ack.GetErrorCode() > 0 {
-		return fmt.Errorf("failed to unSubscribe with reason:%s", ack.GetErrorMessage)
+		errMsg := ack.GetErrorMessage()
+		return fmt.Errorf("failed to unSubscribe with reason:%s", errMsg)
 	}
 	return nil
 }
