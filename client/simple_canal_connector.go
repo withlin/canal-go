@@ -20,7 +20,6 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -50,6 +49,12 @@ type SimpleCanalConnector struct {
 var (
 	conn  net.Conn
 	mutex sync.Mutex
+)
+
+const (
+	versionErr   string = "unsupported version at this client."
+	handshakeErr        = "expect handshake but found other type."
+	packetAckErr        = "unexpected packet type when ack is expected"
 )
 
 //NewSimpleCanalConnector 创建SimpleCanalConnector实例
@@ -134,11 +139,11 @@ func (c SimpleCanalConnector) doConnect() error {
 	}
 	if p != nil {
 		if p.GetVersion() != 1 {
-			panic("unsupported version at this client.")
+			return fmt.Errorf(versionErr)
 		}
 
 		if p.GetType() != pb.PacketType_HANDSHAKE {
-			panic("expect handshake but found other type.")
+			return fmt.Errorf(handshakeErr)
 		}
 
 		handshake := &pb.Handshake{}
@@ -175,7 +180,7 @@ func (c SimpleCanalConnector) doConnect() error {
 		}
 
 		if pk.Type != pb.PacketType_ACK {
-			panic("unexpected packet type when ack is expected")
+			return fmt.Errorf(packetAckErr)
 		}
 
 		ackBody := &pb.Ack{}
@@ -185,7 +190,7 @@ func (c SimpleCanalConnector) doConnect() error {
 		}
 		if ackBody.GetErrorCode() > 0 {
 
-			panic(errors.New(fmt.Sprintf("something goes wrong when doing authentication:%s", ackBody.GetErrorMessage())))
+			return fmt.Errorf("something goes wrong when doing authentication:%s", ackBody.GetErrorMessage())
 		}
 
 		c.Connected = true
@@ -299,7 +304,7 @@ func (c *SimpleCanalConnector) UnSubscribe() error {
 		return err
 	}
 	if ack.GetErrorCode() > 0 {
-		panic(errors.New(fmt.Sprintf("failed to unSubscribe with reason:%s", ack.GetErrorMessage())))
+		return fmt.Errorf("failed to unSubscribe with reason:%s", ack.GetErrorMessage)
 	}
 	return nil
 }
@@ -449,7 +454,7 @@ func (c *SimpleCanalConnector) Subscribe(filter string) error {
 	}
 
 	if ack.GetErrorCode() > 0 {
-		return fmt.Errorf("failed to subscribe with reason::%s", ack.GetErrorMessage())
+		return fmt.Errorf("failed to subscribe with reason:%s", ack.GetErrorMessage())
 	}
 
 	c.Filter = filter
