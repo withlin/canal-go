@@ -147,11 +147,13 @@ func (c SimpleCanalConnector) doConnect() error {
 		}
 
 		handshake := &pb.Handshake{}
+		seed := &handshake.Seeds
 		err = proto.Unmarshal(p.GetBody(), handshake)
 		if err != nil {
 			return err
 		}
-		pas := []byte(c.PassWord)
+		bytePas :=[]byte(c.PassWord)
+		pas := []byte(ByteSliceToHexString(Scramble411(&bytePas,seed)))
 		ca := &pb.ClientAuth{
 			Username:               c.UserName,
 			Password:               pas,
