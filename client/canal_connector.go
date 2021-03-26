@@ -16,17 +16,15 @@
 
 package client
 
-import pb "github.com/CanalClient/canal-go/protocol"
+import pb "github.com/withlin/canal-go/protocol"
 
 type CanalConnector interface {
-	Connect()
-	Disconnect()
-	CheckValid()
-	Subscribe()
-	UnSubscribe()
-	Get(arg ...interface{}) pb.Message
-	GetWithoutAck(arg ...interface{}) pb.Message
-	Ack(batchId int64)
-	Rollback(arg ...interface{})
-	StopRunning()
+	Connect() error
+	DisConnection() error
+	Subscribe(filter string) error
+	UnSubscribe() error
+	Get(batchSize int32, timeOut *int64, units *int32) (msg *pb.Message, err error)
+	GetWithOutAck(batchSize int32, timeOut *int64, units *int32) (msg *pb.Message, err error)
+	Ack(batchId int64) error
+	RollBack(batchId int64) error
 }

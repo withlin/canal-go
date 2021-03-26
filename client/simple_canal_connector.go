@@ -20,14 +20,13 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"io"
 	"net"
 	"strconv"
 	"sync"
 
-	pb "github.com/CanalClient/canal-go/protocol"
+	pb "github.com/withlin/canal-go/protocol"
 
 	"github.com/golang/protobuf/proto"
 )
@@ -50,6 +49,12 @@ type SimpleCanalConnector struct {
 var (
 	conn  net.Conn
 	mutex sync.Mutex
+)
+
+const (
+	versionErr   string = "unsupported version at this client."
+	handshakeErr        = "expect handshake but found other type."
+	packetAckErr        = "unexpected packet type when ack is expected"
 )
 
 //NewSimpleCanalConnector 创建SimpleCanalConnector实例
@@ -105,12 +110,13 @@ func quitelyClose() {
 }
 
 //DisConnection 关闭连接
-func (c *SimpleCanalConnector) DisConnection() {
+func (c *SimpleCanalConnector) DisConnection() error {
 	if c.RollbackOnConnect && c.Connected == true {
 		c.RollBack(0)
 	}
 	c.Connected = false
 	quitelyClose()
+	return nil
 }
 
 //doConnect 去连接Canal-Server
@@ -133,19 +139,21 @@ func (c SimpleCanalConnector) doConnect() error {
 	}
 	if p != nil {
 		if p.GetVersion() != 1 {
-			panic("unsupported version at this client.")
+			return fmt.Errorf(versionErr)
 		}
 
 		if p.GetType() != pb.PacketType_HANDSHAKE {
-			panic("expect handshake but found other type.")
+			return fmt.Errorf(handshakeErr)
 		}
 
 		handshake := &pb.Handshake{}
+		seed := &handshake.Seeds
 		err = proto.Unmarshal(p.GetBody(), handshake)
 		if err != nil {
 			return err
 		}
-		pas := []byte(c.PassWord)
+		bytePas :=[]byte(c.PassWord)
+		pas := []byte(ByteSliceToHexString(Scramble411(&bytePas,seed)))
 		ca := &pb.ClientAuth{
 			Username:               c.UserName,
 			Password:               pas,
@@ -174,7 +182,7 @@ func (c SimpleCanalConnector) doConnect() error {
 		}
 
 		if pk.Type != pb.PacketType_ACK {
-			panic("unexpected packet type when ack is expected")
+			return fmt.Errorf(packetAckErr)
 		}
 
 		ackBody := &pb.Ack{}
@@ -184,7 +192,7 @@ func (c SimpleCanalConnector) doConnect() error {
 		}
 		if ackBody.GetErrorCode() > 0 {
 
-			panic(errors.New(fmt.Sprintf("something goes wrong when doing authentication:%s", ackBody.GetErrorMessage())))
+			return fmt.Errorf("something goes wrong when doing authentication:%s", ackBody.GetErrorMessage())
 		}
 
 		c.Connected = true
@@ -253,7 +261,10 @@ func (c *SimpleCanalConnector) Get(batchSize int32, timeOut *int64, units *int32
 	if err != nil {
 		return nil, err
 	}
-	c.Ack(message.Id)
+	err = c.Ack(message.Id)
+	if err != nil {
+		return nil, err
+	}
 	return message, nil
 }
 
@@ -295,7 +306,8 @@ func (c *SimpleCanalConnector) UnSubscribe() error {
 		return err
 	}
 	if ack.GetErrorCode() > 0 {
-		panic(errors.New(fmt.Sprintf("failed to unSubscribe with reason:%s", ack.GetErrorMessage())))
+		errMsg := ack.GetErrorMessage()
+		return fmt.Errorf("failed to unSubscribe with reason:%s", errMsg)
 	}
 	return nil
 }
@@ -306,54 +318,7 @@ func (c *SimpleCanalConnector) receiveMessages() (*pb.Message, error) {
 	if err != nil {
 		return nil, err
 	}
-	p := new(pb.Packet)
-	err = proto.Unmarshal(data, p)
-	if err != nil {
-		return nil, err
-	}
-	messages := new(pb.Messages)
-	message := new(pb.Message)
-
-	length := len(messages.Messages)
-	message.Entries = make([]pb.Entry, length)
-	ack := new(pb.Ack)
-	var items []pb.Entry
-	var entry pb.Entry
-	switch p.Type {
-	case pb.PacketType_MESSAGES:
-		if !(p.GetCompression() == pb.Compression_NONE) {
-			panic("compression is not supported in this connector")
-		}
-		err := proto.Unmarshal(p.Body, messages)
-		if err != nil {
-			return nil, err
-		}
-		if c.LazyParseEntry {
-			message.RawEntries = messages.Messages
-		} else {
-
-			for _, value := range messages.Messages {
-				err := proto.Unmarshal(value, &entry)
-				if err != nil {
-					return nil, err
-				}
-				items = append(items, entry)
-			}
-		}
-		message.Entries = items
-		message.Id = messages.GetBatchId()
-		return message, nil
-
-	case pb.PacketType_ACK:
-		err := proto.Unmarshal(p.Body, ack)
-		if err != nil {
-			return nil, err
-		}
-		panic(errors.New(fmt.Sprintf("something goes wrong with reason:%s", ack.GetErrorMessage())))
-	default:
-		panic(errors.New(fmt.Sprintf("unexpected packet type:%s", p.Type)))
-
-	}
+	return pb.Decode(data, c.LazyParseEntry)
 }
 
 //Ack Ack Canal-server的数据（就是昨晚某些逻辑操作后删除canal-server端的数据）
@@ -467,7 +432,7 @@ func (c *SimpleCanalConnector) Subscribe(filter string) error {
 	if !c.Running {
 		return nil
 	}
-	body, _ := proto.Marshal(&pb.Sub{Destination: c.ClientIdentity.Destination, ClientId: strconv.Itoa(c.ClientIdentity.ClientId), Filter: c.Filter})
+	body, _ := proto.Marshal(&pb.Sub{Destination: c.ClientIdentity.Destination, ClientId: strconv.Itoa(c.ClientIdentity.ClientId), Filter: filter})
 	pack := new(pb.Packet)
 	pack.Type = pb.PacketType_SUBSCRIPTION
 	pack.Body = body
@@ -492,13 +457,12 @@ func (c *SimpleCanalConnector) Subscribe(filter string) error {
 	}
 
 	if ack.GetErrorCode() > 0 {
-
-		panic(errors.New(fmt.Sprintf("failed to subscribe with reason::%s", ack.GetErrorMessage())))
+		return fmt.Errorf("failed to subscribe with reason:%s", ack.GetErrorMessage())
 	}
 
 	c.Filter = filter
-	return nil
 
+	return nil
 }
 
 //waitClientRunning 等待客户端跑

@@ -12,6 +12,11 @@ import (
 	"github.com/samuel/go-zookeeper/zk"
 )
 
+/**
+修改说明：去掉CanalClusterNode里的ServerRunningData和Event，不再监听，改为随用随取，因为不能确定取到值后就进行链接，会造成数据不一致，
+		 如果当前Server挂了，连接会断开，到时候直接重连就可以了
+*/
+
 type ServerRunningData struct {
 	Cid     int64
 	Address string
@@ -19,11 +24,10 @@ type ServerRunningData struct {
 }
 
 type CanalClusterNode struct {
+	zkClient *zk.Conn
 	destination    string
 	clusterAddress []string
-	runningServer  *ServerRunningData
 	clusterEvent   <-chan zk.Event
-	serverEvent    <-chan zk.Event
 }
 
 const (
@@ -34,11 +38,8 @@ const (
 func NewCanalClusterNode(destination string, zkServer []string, timeout time.Duration) (canalNode *CanalClusterNode, err error) {
 	var (
 		zkClient   *zk.Conn
-		b          []byte
 		cluster    []string
 		clusterEV  <-chan zk.Event
-		serverEV   <-chan zk.Event
-		serverInfo ServerRunningData
 	)
 
 	if zkClient, _, err = zk.Connect(zkServer, timeout); err != nil {
@@ -50,24 +51,14 @@ func NewCanalClusterNode(destination string, zkServer []string, timeout time.Dur
 		return
 	}
 
-	if b, _, serverEV, err = zkClient.GetW(fmt.Sprintf(running_path, destination)); err != nil {
-		log.Printf("zkClient.GetW err:%v", err)
-		return
-	}
-
-	if err = json.Unmarshal(b, &serverInfo); err != nil {
-		log.Printf("json.Unmarshal err:%v", err)
-		return
-	}
-
 	canalNode = &CanalClusterNode{
+		zkClient:zkClient,
 		destination:   destination,
-		runningServer: &serverInfo,
 		clusterEvent:  clusterEV,
-		serverEvent:   serverEV,
 	}
 
 	canalNode.InitClusters(cluster)
+
 	return
 }
 
@@ -79,27 +70,40 @@ func (canalNode *CanalClusterNode) InitClusters(addressList []string) {
 }
 
 func (canalNode *CanalClusterNode) GetNode() (addr string, port int, err error) {
-	server := ""
-	if canalNode.runningServer != nil {
-		server = canalNode.runningServer.Address
+
+	serverRunningData, err := canalNode.getRunningServer()
+	if err != nil {
+		return "", 0, err
 	}
 
-	if server == "" && len(canalNode.clusterAddress) > 0 {
-		server = canalNode.clusterAddress[0]
-	}
-
-	if server != "" {
-		s := strings.Split(server, ":")
-		if len(s) == 2 {
-			if port, err = strconv.Atoi(s[1]); err == nil {
-				addr = s[0]
-			}
+	s := strings.Split(serverRunningData.Address, ":")
+	if len(s) == 2 && s[0]!=""{
+		port, err = strconv.Atoi(s[1])
+		if  err != nil {
+			return "",0, fmt.Errorf("error canal cluster server %s", serverRunningData.Address)
 		}
-	} else {
-		return "", 0, fmt.Errorf("no alive canal server for %s", canalNode.destination)
+
+		addr = s[0]
+		return
+	}else {
+		return "", 0, fmt.Errorf("error canal cluster server %s", serverRunningData.Address)
 	}
-	if addr == "" {
-		return "", 0, fmt.Errorf("error canal cluster server %s", server)
+}
+
+func (canalNode *CanalClusterNode) getRunningServer() (ServerRunningData,error) {
+	serverInfo := ServerRunningData{}
+
+	body, _, err := canalNode.zkClient.Get(fmt.Sprintf(running_path, canalNode.destination))
+	if err != nil {
+		log.Printf("zkClient.GetW err:%v", err)
+		return serverInfo,err
 	}
-	return
+
+	err = json.Unmarshal(body, &serverInfo);
+	if err != nil {
+		log.Printf("json.Unmarshal err:%v", err)
+		return serverInfo,err
+	}
+
+	return serverInfo,nil
 }
