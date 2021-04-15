@@ -14,18 +14,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com_alibaba_otter_canal_protocol
+package protocol
 
 import (
 	"errors"
 	"fmt"
-
 	"github.com/gogo/protobuf/proto"
+	pbe "github.com/withlin/canal-go/protocol/entry"
+	pbp "github.com/withlin/canal-go/protocol/packet"
 )
 
 type Message struct {
 	Id         int64
-	Entries    []Entry
+	Entries    []pbe.Entry
 	Raw        bool
 	RawEntries interface{}
 }
@@ -36,22 +37,22 @@ func NewMessage(id int64) *Message {
 }
 
 func Decode(data []byte, lazyParseEntry bool) (*Message, error) {
-	p := new(Packet)
+	p := new(pbp.Packet)
 	err := proto.Unmarshal(data, p)
 	if err != nil {
 		return nil, err
 	}
-	messages := new(Messages)
+	messages := new(pbp.Messages)
 	message := new(Message)
 
 	length := len(messages.Messages)
-	message.Entries = make([]Entry, length)
-	ack := new(Ack)
-	var items []Entry
-	var entry Entry
+	message.Entries = make([]pbe.Entry, length)
+	ack := new(pbp.Ack)
+	var items []pbe.Entry
+	var entry pbe.Entry
 	switch p.Type {
-	case PacketType_MESSAGES:
-		if !(p.GetCompression() == Compression_NONE) {
+	case pbp.PacketType_MESSAGES:
+		if !(p.GetCompression() == pbp.Compression_NONE) && !(p.GetCompression() == pbp.Compression_COMPRESSIONCOMPATIBLEPROTO2) { // NONE和兼容pb2的处理方式相同
 			panic("compression is not supported in this connector")
 		}
 		err := proto.Unmarshal(p.Body, messages)
@@ -75,7 +76,7 @@ func Decode(data []byte, lazyParseEntry bool) (*Message, error) {
 		message.Id = messages.GetBatchId()
 		return message, nil
 
-	case PacketType_ACK:
+	case pbp.PacketType_ACK:
 		err := proto.Unmarshal(p.Body, ack)
 		if err != nil {
 			return nil, err

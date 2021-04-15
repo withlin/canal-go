@@ -1,10 +1,11 @@
 ﻿syntax = "proto3";
-package com.alibaba.otter.canal.protocol;
+package com.alibaba.otter.canal.protocol.entry;
 
 option java_package = "com.alibaba.otter.canal.protocol";
 option java_outer_classname = "CanalEntry";
 option optimize_for = SPEED;
 
+option go_package = "./;entry";
 /****************************************************************
  * message model
  *如果要在Enum中新增类型，确保以前的类型的下标值不变.

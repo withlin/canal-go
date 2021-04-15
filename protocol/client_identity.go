@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com_alibaba_otter_canal_protocol
+package protocol
 
 type ClientIdentity struct {
 	Destination string
