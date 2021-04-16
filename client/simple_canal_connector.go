@@ -21,12 +21,13 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	pb "github.com/withlin/canal-go/protocol"
 	"io"
 	"net"
 	"strconv"
 	"sync"
 
-	pb "github.com/withlin/canal-go/protocol"
+	pbp "github.com/withlin/canal-go/protocol/packet"
 
 	"github.com/golang/protobuf/proto"
 )
@@ -128,7 +129,7 @@ func (c SimpleCanalConnector) doConnect() error {
 	}
 	conn = con
 
-	p := new(pb.Packet)
+	p := new(pbp.Packet)
 	data, err := readNextPacket()
 	if err != nil {
 		return err
@@ -142,27 +143,27 @@ func (c SimpleCanalConnector) doConnect() error {
 			return fmt.Errorf(versionErr)
 		}
 
-		if p.GetType() != pb.PacketType_HANDSHAKE {
+		if p.GetType() != pbp.PacketType_HANDSHAKE {
 			return fmt.Errorf(handshakeErr)
 		}
 
-		handshake := &pb.Handshake{}
+		handshake := &pbp.Handshake{}
 		seed := &handshake.Seeds
 		err = proto.Unmarshal(p.GetBody(), handshake)
 		if err != nil {
 			return err
 		}
-		bytePas :=[]byte(c.PassWord)
-		pas := []byte(ByteSliceToHexString(Scramble411(&bytePas,seed)))
-		ca := &pb.ClientAuth{
+		bytePas := []byte(c.PassWord)
+		pas := []byte(ByteSliceToHexString(Scramble411(&bytePas, seed)))
+		ca := &pbp.ClientAuth{
 			Username:               c.UserName,
 			Password:               pas,
-			NetReadTimeoutPresent:  &pb.ClientAuth_NetReadTimeout{NetReadTimeout: c.IdleTimeOut},
-			NetWriteTimeoutPresent: &pb.ClientAuth_NetWriteTimeout{NetWriteTimeout: c.IdleTimeOut},
+			NetReadTimeoutPresent:  &pbp.ClientAuth_NetReadTimeout{NetReadTimeout: c.IdleTimeOut},
+			NetWriteTimeoutPresent: &pbp.ClientAuth_NetWriteTimeout{NetWriteTimeout: c.IdleTimeOut},
 		}
 		caByteArray, _ := proto.Marshal(ca)
-		packet := &pb.Packet{
-			Type: pb.PacketType_CLIENTAUTHENTICATION,
+		packet := &pbp.Packet{
+			Type: pbp.PacketType_CLIENTAUTHENTICATION,
 			Body: caByteArray,
 		}
 
@@ -174,18 +175,18 @@ func (c SimpleCanalConnector) doConnect() error {
 		if err != nil {
 			return err
 		}
-		pk := &pb.Packet{}
+		pk := &pbp.Packet{}
 
 		err = proto.Unmarshal(pp, pk)
 		if err != nil {
 			return err
 		}
 
-		if pk.Type != pb.PacketType_ACK {
+		if pk.Type != pbp.PacketType_ACK {
 			return fmt.Errorf(packetAckErr)
 		}
 
-		ackBody := &pb.Ack{}
+		ackBody := &pbp.Ack{}
 		err = proto.Unmarshal(pk.GetBody(), ackBody)
 		if err != nil {
 			return err
@@ -228,20 +229,20 @@ func (c *SimpleCanalConnector) GetWithOutAck(batchSize int32, timeOut *int64, un
 	if units == nil {
 		units = &i
 	}
-	get := new(pb.Get)
-	get.AutoAckPresent = &pb.Get_AutoAck{AutoAck: false}
+	get := new(pbp.Get)
+	get.AutoAckPresent = &pbp.Get_AutoAck{AutoAck: false}
 	get.Destination = c.ClientIdentity.Destination
 	get.ClientId = strconv.Itoa(c.ClientIdentity.ClientId)
 	get.FetchSize = size
-	get.TimeoutPresent = &pb.Get_Timeout{Timeout: *time}
-	get.UnitPresent = &pb.Get_Unit{Unit: *units}
+	get.TimeoutPresent = &pbp.Get_Timeout{Timeout: *time}
+	get.UnitPresent = &pbp.Get_Unit{Unit: *units}
 
 	getBody, err := proto.Marshal(get)
 	if err != nil {
 		return nil, err
 	}
-	packet := new(pb.Packet)
-	packet.Type = pb.PacketType_GET
+	packet := new(pbp.Packet)
+	packet.Type = pbp.PacketType_GET
 	packet.Body = getBody
 	pa, err := proto.Marshal(packet)
 	if err != nil {
@@ -275,7 +276,7 @@ func (c *SimpleCanalConnector) UnSubscribe() error {
 		return nil
 	}
 
-	us := new(pb.Unsub)
+	us := new(pbp.Unsub)
 	us.Destination = c.ClientIdentity.Destination
 	us.ClientId = strconv.Itoa(c.ClientIdentity.ClientId)
 
@@ -284,8 +285,8 @@ func (c *SimpleCanalConnector) UnSubscribe() error {
 		return err
 	}
 
-	pa := new(pb.Packet)
-	pa.Type = pb.PacketType_UNSUBSCRIPTION
+	pa := new(pbp.Packet)
+	pa.Type = pbp.PacketType_UNSUBSCRIPTION
 	pa.Body = unSub
 
 	pack, err := proto.Marshal(pa)
@@ -300,7 +301,7 @@ func (c *SimpleCanalConnector) UnSubscribe() error {
 	if err != nil {
 		return err
 	}
-	ack := new(pb.Ack)
+	ack := new(pbp.Ack)
 	err = proto.Unmarshal(pa.Body, ack)
 	if err != nil {
 		return err
@@ -328,7 +329,7 @@ func (c *SimpleCanalConnector) Ack(batchId int64) error {
 		return nil
 	}
 
-	ca := new(pb.ClientAck)
+	ca := new(pbp.ClientAck)
 	ca.Destination = c.ClientIdentity.Destination
 	ca.ClientId = strconv.Itoa(c.ClientIdentity.ClientId)
 	ca.BatchId = batchId
@@ -337,8 +338,8 @@ func (c *SimpleCanalConnector) Ack(batchId int64) error {
 	if err != nil {
 		return err
 	}
-	pa := new(pb.Packet)
-	pa.Type = pb.PacketType_CLIENTACK
+	pa := new(pbp.Packet)
+	pa.Type = pbp.PacketType_CLIENTACK
 	pa.Body = clientAck
 	pack, err := proto.Marshal(pa)
 	if err != nil {
@@ -352,7 +353,7 @@ func (c *SimpleCanalConnector) Ack(batchId int64) error {
 //RollBack 回滚操作
 func (c *SimpleCanalConnector) RollBack(batchId int64) error {
 	c.waitClientRunning()
-	cb := new(pb.ClientRollback)
+	cb := new(pbp.ClientRollback)
 	cb.Destination = c.ClientIdentity.Destination
 	cb.ClientId = strconv.Itoa(c.ClientIdentity.ClientId)
 	cb.BatchId = batchId
@@ -362,8 +363,8 @@ func (c *SimpleCanalConnector) RollBack(batchId int64) error {
 		return err
 	}
 
-	pa := new(pb.Packet)
-	pa.Type = pb.PacketType_CLIENTROLLBACK
+	pa := new(pbp.Packet)
+	pa.Type = pbp.PacketType_CLIENTROLLBACK
 	pa.Body = clientBollBack
 	pack, err := proto.Marshal(pa)
 	if err != nil {
@@ -432,15 +433,15 @@ func (c *SimpleCanalConnector) Subscribe(filter string) error {
 	if !c.Running {
 		return nil
 	}
-	body, _ := proto.Marshal(&pb.Sub{Destination: c.ClientIdentity.Destination, ClientId: strconv.Itoa(c.ClientIdentity.ClientId), Filter: filter})
-	pack := new(pb.Packet)
-	pack.Type = pb.PacketType_SUBSCRIPTION
+	body, _ := proto.Marshal(&pbp.Sub{Destination: c.ClientIdentity.Destination, ClientId: strconv.Itoa(c.ClientIdentity.ClientId), Filter: filter})
+	pack := new(pbp.Packet)
+	pack.Type = pbp.PacketType_SUBSCRIPTION
 	pack.Body = body
 
 	packet, _ := proto.Marshal(pack)
 	WriteWithHeader(packet)
 
-	p := new(pb.Packet)
+	p := new(pbp.Packet)
 
 	paBytes, err := readNextPacket()
 	if err != nil {
@@ -450,7 +451,7 @@ func (c *SimpleCanalConnector) Subscribe(filter string) error {
 	if err != nil {
 		return err
 	}
-	ack := new(pb.Ack)
+	ack := new(pbp.Ack)
 	err = proto.Unmarshal(p.Body, ack)
 	if err != nil {
 		return err

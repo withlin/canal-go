@@ -22,9 +22,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/withlin/canal-go/client"
-	protocol "github.com/withlin/canal-go/protocol"
 	"github.com/golang/protobuf/proto"
+	"github.com/withlin/canal-go/client"
+	pbe "github.com/withlin/canal-go/protocol/entry"
 )
 
 func main() {
@@ -76,13 +76,13 @@ func main() {
 	}
 }
 
-func printEntry(entrys []protocol.Entry) {
+func printEntry(entrys []pbe.Entry) {
 
 	for _, entry := range entrys {
-		if entry.GetEntryType() == protocol.EntryType_TRANSACTIONBEGIN || entry.GetEntryType() == protocol.EntryType_TRANSACTIONEND {
+		if entry.GetEntryType() == pbe.EntryType_TRANSACTIONBEGIN || entry.GetEntryType() == pbe.EntryType_TRANSACTIONEND {
 			continue
 		}
-		rowChange := new(protocol.RowChange)
+		rowChange := new(pbe.RowChange)
 
 		err := proto.Unmarshal(entry.GetStoreValue(), rowChange)
 		checkError(err)
@@ -92,9 +92,9 @@ func printEntry(entrys []protocol.Entry) {
 			fmt.Println(fmt.Sprintf("================> binlog[%s : %d],name[%s,%s], eventType: %s", header.GetLogfileName(), header.GetLogfileOffset(), header.GetSchemaName(), header.GetTableName(), header.GetEventType()))
 
 			for _, rowData := range rowChange.GetRowDatas() {
-				if eventType == protocol.EventType_DELETE {
+				if eventType == pbe.EventType_DELETE {
 					printColumn(rowData.GetBeforeColumns())
-				} else if eventType == protocol.EventType_INSERT {
+				} else if eventType == pbe.EventType_INSERT {
 					printColumn(rowData.GetAfterColumns())
 				} else {
 					fmt.Println("-------> before")
@@ -107,7 +107,7 @@ func printEntry(entrys []protocol.Entry) {
 	}
 }
 
-func printColumn(columns []*protocol.Column) {
+func printColumn(columns []*pbe.Column) {
 	for _, col := range columns {
 		fmt.Println(fmt.Sprintf("%s : %s  update= %t", col.GetName(), col.GetValue(), col.GetUpdated()))
 	}
