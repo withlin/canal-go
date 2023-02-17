@@ -45,12 +45,9 @@ type SimpleCanalConnector struct {
 	Filter            string
 	RollbackOnConnect bool
 	LazyParseEntry    bool
+	conn              net.Conn
+	mutex             sync.Mutex
 }
-
-var (
-	conn  net.Conn
-	mutex sync.Mutex
-)
 
 const (
 	versionErr   string = "unsupported version at this client."
@@ -58,7 +55,7 @@ const (
 	packetAckErr        = "unexpected packet type when ack is expected"
 )
 
-//NewSimpleCanalConnector 创建SimpleCanalConnector实例
+// NewSimpleCanalConnector 创建SimpleCanalConnector实例
 func NewSimpleCanalConnector(address string, port int, username string, password string, destination string, soTimeOut int32, idleTimeOut int32) *SimpleCanalConnector {
 	s := &SimpleCanalConnector{
 		Address:           address,
@@ -74,7 +71,7 @@ func NewSimpleCanalConnector(address string, port int, username string, password
 
 }
 
-//Connect 连接Canal-server
+// Connect 连接Canal-server
 func (c *SimpleCanalConnector) Connect() error {
 	if c.Connected {
 		return nil
@@ -103,34 +100,34 @@ func (c *SimpleCanalConnector) Connect() error {
 
 }
 
-//quitelyClose 优雅关闭
-func quitelyClose() {
-	if conn != nil {
-		conn.Close()
+// quitelyClose 优雅关闭
+func (c *SimpleCanalConnector) quitelyClose() {
+	if c.conn != nil {
+		c.conn.Close()
 	}
 }
 
-//DisConnection 关闭连接
+// DisConnection 关闭连接
 func (c *SimpleCanalConnector) DisConnection() error {
 	if c.RollbackOnConnect && c.Connected == true {
 		c.RollBack(0)
 	}
 	c.Connected = false
-	quitelyClose()
+	c.quitelyClose()
 	return nil
 }
 
-//doConnect 去连接Canal-Server
-func (c SimpleCanalConnector) doConnect() error {
+// doConnect 去连接Canal-Server
+func (c *SimpleCanalConnector) doConnect() error {
 	address := c.Address + ":" + fmt.Sprintf("%d", c.Port)
 	con, err := net.Dial("tcp", address)
 	if err != nil {
 		return err
 	}
-	conn = con
+	c.conn = con
 
 	p := new(pbp.Packet)
-	data, err := readNextPacket()
+	data, err := c.readNextPacket()
 	if err != nil {
 		return err
 	}
@@ -169,9 +166,9 @@ func (c SimpleCanalConnector) doConnect() error {
 
 		packArray, _ := proto.Marshal(packet)
 
-		WriteWithHeader(packArray)
+		c.WriteWithHeader(packArray)
 
-		pp, err := readNextPacket()
+		pp, err := c.readNextPacket()
 		if err != nil {
 			return err
 		}
@@ -203,7 +200,7 @@ func (c SimpleCanalConnector) doConnect() error {
 
 }
 
-//GetWithOutAck 获取数据不Ack
+// GetWithOutAck 获取数据不Ack
 func (c *SimpleCanalConnector) GetWithOutAck(batchSize int32, timeOut *int64, units *int32) (*pb.Message, error) {
 	c.waitClientRunning()
 	if !c.Running {
@@ -248,7 +245,7 @@ func (c *SimpleCanalConnector) GetWithOutAck(batchSize int32, timeOut *int64, un
 	if err != nil {
 		return nil, err
 	}
-	WriteWithHeader(pa)
+	c.WriteWithHeader(pa)
 	message, err := c.receiveMessages()
 	if err != nil {
 		return nil, err
@@ -256,7 +253,7 @@ func (c *SimpleCanalConnector) GetWithOutAck(batchSize int32, timeOut *int64, un
 	return message, nil
 }
 
-//Get 获取数据并且Ack数据
+// Get 获取数据并且Ack数据
 func (c *SimpleCanalConnector) Get(batchSize int32, timeOut *int64, units *int32) (*pb.Message, error) {
 	message, err := c.GetWithOutAck(batchSize, timeOut, units)
 	if err != nil {
@@ -269,7 +266,7 @@ func (c *SimpleCanalConnector) Get(batchSize int32, timeOut *int64, units *int32
 	return message, nil
 }
 
-//UnSubscribe 取消订阅
+// UnSubscribe 取消订阅
 func (c *SimpleCanalConnector) UnSubscribe() error {
 	c.waitClientRunning()
 	if c.Running {
@@ -290,9 +287,9 @@ func (c *SimpleCanalConnector) UnSubscribe() error {
 	pa.Body = unSub
 
 	pack, err := proto.Marshal(pa)
-	WriteWithHeader(pack)
+	c.WriteWithHeader(pack)
 
-	p, err := readNextPacket()
+	p, err := c.readNextPacket()
 	if err != nil {
 		return err
 	}
@@ -313,16 +310,16 @@ func (c *SimpleCanalConnector) UnSubscribe() error {
 	return nil
 }
 
-//receiveMessages 接收Canal-Server返回的消息体
+// receiveMessages 接收Canal-Server返回的消息体
 func (c *SimpleCanalConnector) receiveMessages() (*pb.Message, error) {
-	data, err := readNextPacket()
+	data, err := c.readNextPacket()
 	if err != nil {
 		return nil, err
 	}
 	return pb.Decode(data, c.LazyParseEntry)
 }
 
-//Ack Ack Canal-server的数据（就是昨晚某些逻辑操作后删除canal-server端的数据）
+// Ack Ack Canal-server的数据（就是昨晚某些逻辑操作后删除canal-server端的数据）
 func (c *SimpleCanalConnector) Ack(batchId int64) error {
 	c.waitClientRunning()
 	if !c.Running {
@@ -345,12 +342,12 @@ func (c *SimpleCanalConnector) Ack(batchId int64) error {
 	if err != nil {
 		return err
 	}
-	WriteWithHeader(pack)
+	c.WriteWithHeader(pack)
 	return nil
 
 }
 
-//RollBack 回滚操作
+// RollBack 回滚操作
 func (c *SimpleCanalConnector) RollBack(batchId int64) error {
 	c.waitClientRunning()
 	cb := new(pbp.ClientRollback)
@@ -370,27 +367,27 @@ func (c *SimpleCanalConnector) RollBack(batchId int64) error {
 	if err != nil {
 		return err
 	}
-	WriteWithHeader(pack)
+	c.WriteWithHeader(pack)
 	return nil
 }
 
 // readHeaderLength 读取protobuf的header字节，该字节存取了你要读的package的长度
-func readHeaderLength() int {
+func (c *SimpleCanalConnector) readHeaderLength() int {
 	buf := make([]byte, 4)
-	conn.Read(buf)
+	c.conn.Read(buf)
 	bytesBuffer := bytes.NewBuffer(buf)
 	var x int32
 	binary.Read(bytesBuffer, binary.BigEndian, &x)
 	return int(x)
 }
 
-//readNextPacket 通过长度去读取数据包
-func readNextPacket() ([]byte, error) {
-	mutex.Lock()
+// readNextPacket 通过长度去读取数据包
+func (c *SimpleCanalConnector) readNextPacket() ([]byte, error) {
+	c.mutex.Lock()
 	defer func() {
-		mutex.Unlock()
+		c.mutex.Unlock()
 	}()
-	rdr := bufio.NewReader(conn)
+	rdr := bufio.NewReader(c.conn)
 	data := make([]byte, 0, 4*1024)
 	n, err := io.ReadFull(rdr, data[:4])
 	if err != nil {
@@ -409,14 +406,14 @@ func readNextPacket() ([]byte, error) {
 	return data, nil
 }
 
-//WriteWithHeader 写数据包的header+body
-func WriteWithHeader(body []byte) {
-	mutex.Lock()
+// WriteWithHeader 写数据包的header+body
+func (c *SimpleCanalConnector) WriteWithHeader(body []byte) {
+	c.mutex.Lock()
 	lenth := len(body)
 	bytes := getWriteHeaderBytes(lenth)
-	conn.Write(bytes)
-	conn.Write(body)
-	mutex.Unlock()
+	c.conn.Write(bytes)
+	c.conn.Write(body)
+	c.mutex.Unlock()
 }
 
 // getWriteHeaderBytes 获取要写数据的长度
@@ -427,7 +424,7 @@ func getWriteHeaderBytes(lenth int) []byte {
 	return bytesBuffer.Bytes()
 }
 
-//Subscribe 订阅
+// Subscribe 订阅
 func (c *SimpleCanalConnector) Subscribe(filter string) error {
 	c.waitClientRunning()
 	if !c.Running {
@@ -439,11 +436,11 @@ func (c *SimpleCanalConnector) Subscribe(filter string) error {
 	pack.Body = body
 
 	packet, _ := proto.Marshal(pack)
-	WriteWithHeader(packet)
+	c.WriteWithHeader(packet)
 
 	p := new(pbp.Packet)
 
-	paBytes, err := readNextPacket()
+	paBytes, err := c.readNextPacket()
 	if err != nil {
 		return err
 	}
@@ -466,7 +463,7 @@ func (c *SimpleCanalConnector) Subscribe(filter string) error {
 	return nil
 }
 
-//waitClientRunning 等待客户端跑
+// waitClientRunning 等待客户端跑
 func (c *SimpleCanalConnector) waitClientRunning() {
 	c.Running = true
 }
