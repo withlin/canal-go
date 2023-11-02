@@ -19,9 +19,9 @@ package protocol
 import (
 	"errors"
 	"fmt"
-	"github.com/gogo/protobuf/proto"
 	pbe "github.com/withlin/canal-go/protocol/entry"
 	pbp "github.com/withlin/canal-go/protocol/packet"
+	proto "google.golang.org/protobuf/proto"
 )
 
 type Message struct {

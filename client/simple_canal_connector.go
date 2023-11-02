@@ -29,7 +29,7 @@ import (
 
 	pbp "github.com/withlin/canal-go/protocol/packet"
 
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 )
 
 type SimpleCanalConnector struct {

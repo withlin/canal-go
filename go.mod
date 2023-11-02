@@ -1,9 +1,10 @@
 module github.com/withlin/canal-go
 
 require (
-	github.com/gogo/protobuf v1.3.2
-	github.com/golang/protobuf v1.5.2
-	github.com/samuel/go-zookeeper v0.0.0-20180130194729-c4fab1ac1bec
+	github.com/go-zookeeper/zk v1.0.3
+	google.golang.org/protobuf v1.31.0
 )
 
-go 1.13
+require github.com/google/go-cmp v0.6.0 // indirect
+
+go 1.21

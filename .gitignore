@@ -20,3 +20,7 @@
 .idea
 
 vendor
+
+docker/var
+docker/canal-server-logs
+docker/example/meta.dat
