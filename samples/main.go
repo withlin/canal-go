@@ -22,16 +22,16 @@ import (
 	"os"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/withlin/canal-go/client"
 	pbe "github.com/withlin/canal-go/protocol/entry"
+	"google.golang.org/protobuf/proto"
 )
 
 func main() {
 
 	// 192.168.199.17 替换成你的canal server的地址
 	// example 替换成-e canal.destinations=example 你自己定义的名字
-	connector := client.NewSimpleCanalConnector("192.168.199.17", 11111, "", "", "example", 60000, 60*60*1000)
+	connector := client.NewSimpleCanalConnector("127.0.0.1", 11111, "", "", "example", 60000, 60*60*1000)
 	err := connector.Connect()
 	if err != nil {
 		log.Println(err)

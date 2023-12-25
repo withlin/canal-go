@@ -2,9 +2,9 @@ package main
 
 import (
 	"fmt"
-	"github.com/gogo/protobuf/proto"
 	"github.com/withlin/canal-go/client"
 	pbe "github.com/withlin/canal-go/protocol/entry"
+	proto "google.golang.org/protobuf/proto"
 	"log"
 	"os"
 	"time"

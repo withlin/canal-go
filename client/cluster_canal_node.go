@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/samuel/go-zookeeper/zk"
+	"github.com/go-zookeeper/zk"
 )
 
 /**
@@ -24,7 +24,7 @@ type ServerRunningData struct {
 }
 
 type CanalClusterNode struct {
-	zkClient *zk.Conn
+	zkClient       *zk.Conn
 	destination    string
 	clusterAddress []string
 	clusterEvent   <-chan zk.Event
@@ -37,9 +37,9 @@ const (
 
 func NewCanalClusterNode(destination string, zkServer []string, timeout time.Duration) (canalNode *CanalClusterNode, err error) {
 	var (
-		zkClient   *zk.Conn
-		cluster    []string
-		clusterEV  <-chan zk.Event
+		zkClient  *zk.Conn
+		cluster   []string
+		clusterEV <-chan zk.Event
 	)
 
 	if zkClient, _, err = zk.Connect(zkServer, timeout); err != nil {
@@ -52,9 +52,9 @@ func NewCanalClusterNode(destination string, zkServer []string, timeout time.Dur
 	}
 
 	canalNode = &CanalClusterNode{
-		zkClient:zkClient,
-		destination:   destination,
-		clusterEvent:  clusterEV,
+		zkClient:     zkClient,
+		destination:  destination,
+		clusterEvent: clusterEV,
 	}
 
 	canalNode.InitClusters(cluster)
@@ -77,33 +77,33 @@ func (canalNode *CanalClusterNode) GetNode() (addr string, port int, err error) 
 	}
 
 	s := strings.Split(serverRunningData.Address, ":")
-	if len(s) == 2 && s[0]!=""{
+	if len(s) == 2 && s[0] != "" {
 		port, err = strconv.Atoi(s[1])
-		if  err != nil {
-			return "",0, fmt.Errorf("error canal cluster server %s", serverRunningData.Address)
+		if err != nil {
+			return "", 0, fmt.Errorf("error canal cluster server %s", serverRunningData.Address)
 		}
 
 		addr = s[0]
 		return
-	}else {
+	} else {
 		return "", 0, fmt.Errorf("error canal cluster server %s", serverRunningData.Address)
 	}
 }
 
-func (canalNode *CanalClusterNode) getRunningServer() (ServerRunningData,error) {
+func (canalNode *CanalClusterNode) getRunningServer() (ServerRunningData, error) {
 	serverInfo := ServerRunningData{}
 
 	body, _, err := canalNode.zkClient.Get(fmt.Sprintf(running_path, canalNode.destination))
 	if err != nil {
 		log.Printf("zkClient.GetW err:%v", err)
-		return serverInfo,err
+		return serverInfo, err
 	}
 
-	err = json.Unmarshal(body, &serverInfo);
+	err = json.Unmarshal(body, &serverInfo)
 	if err != nil {
 		log.Printf("json.Unmarshal err:%v", err)
-		return serverInfo,err
+		return serverInfo, err
 	}
 
-	return serverInfo,nil
+	return serverInfo, nil
 }

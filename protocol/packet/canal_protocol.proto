@@ -74,7 +74,7 @@ message ClientAuth {
     oneof net_read_timeout_present {
         int32 net_read_timeout = 3; // in seconds
     }
-    // [default = 0]; 
+    // [default = 0];
     oneof net_write_timeout_present {
         int32 net_write_timeout = 4; // in seconds
     }
@@ -123,12 +123,13 @@ message Get {
     }
     //[default = 2]
     oneof unit_present {
-        int32 unit = 5; // 数字类型，0:纳秒,1:毫秒,2:微秒,3:秒,4:分钟,5:小时,6:天
+        int32 unit = 5;// 数字类型，0:纳秒,1:微秒,2:毫秒,3:秒,4:分钟,5:小时,6:天
     }
     //[default = false]
     oneof auto_ack_present {
         bool auto_ack = 6; // 是否自动ack
     }
+
 }
 
 //
@@ -138,16 +139,17 @@ message Messages {
 }
 
 // TBD when new packets are required
-message Dump {
+message Dump{
     string journal = 1;
-    int64 position = 2;
+    int64  position = 2;
     // [default = 0]
     oneof timestamp_present {
         int64 timestamp = 3;
     }
+
 }
 
-message ClientRollback {
+message ClientRollback{
     string destination = 1;
     string client_id = 2;
     int64 batch_id = 3;
