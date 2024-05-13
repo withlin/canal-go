@@ -3,11 +3,12 @@ package client
 import (
 	"errors"
 	"fmt"
-	"github.com/go-zookeeper/zk"
 	"log"
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/go-zookeeper/zk"
 
 	pb "github.com/withlin/canal-go/protocol"
 )
@@ -284,6 +285,8 @@ func (cc *ClusterCanalConnector) waitBecomeFirst() error {
 			if err != nil {
 				return err
 			}
+			// 再次创建临时节点成功后将版本设置为0，不然后续更新节点会出现版本冲突
+			cc.zkVersion = 0
 			return cc.waitBecomeFirst()
 		}
 	}
